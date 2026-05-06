@@ -1,16 +1,21 @@
 package com.p2.qa.sprint1.pageobjects;
 
+import java.io.File;
+import java.io.IOException;
 import java.time.Duration;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.Keys;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.apache.commons.io.FileUtils;
 
 import utils.TestDataGenerator;
 
@@ -32,7 +37,9 @@ public class DashboardFlowObjects {
         fillIfPresent(customer.firstName, "firstName", "first_name", "First Name", "First");
         fillIfPresent(customer.lastName, "lastName", "last_name", "Last Name", "Last");
         fillIfPresent(customer.phone, "phone", "phone_number", "Phone Number", "Phone");
+        reviewBeforeAction("customer-form-before-submit");
         clickFirstButton("Submit", "Register", "Create", "Save");
+        reviewBeforeAction("customer-confirm-before-ok");
         confirmIfPresent("Yes", "Register", "Create", "Add", "Save");
         waitForPageToSettle();
         return customer;
@@ -45,7 +52,9 @@ public class DashboardFlowObjects {
         selectFirstOptionForLabels("Bike", "VIN", "License Plate");
         selectDateIfPresent("Purchase Date", "Purchased Date", "Assigned Date", "Start Date");
         fillIfPresent("Initial automated ownership assignment", "remarks", "Remarks", "Note");
+        reviewBeforeAction("ownership-form-before-submit");
         clickFirstButton("Submit", "Create", "Assign", "Save");
+        reviewBeforeAction("ownership-confirm-before-ok");
         confirmIfPresent("Yes", "Assign", "Create", "Add", "Save");
         waitForPageToSettle();
     }
@@ -59,7 +68,9 @@ public class DashboardFlowObjects {
         fillIfPresent("FLOW-" + System.currentTimeMillis(), "reference", "Reference", "Transaction ID");
         selectFirstOptionForLabels("Payment Method", "Method", "Payment Type");
         fillIfPresent("Automated payment from UI end-to-end flow", "remarks", "Remarks", "Note");
+        reviewBeforeAction("payment-form-before-submit");
         clickFirstButton("Submit", "Pay", "Create", "Save");
+        reviewBeforeAction("payment-confirm-before-ok");
         confirmIfPresent("Yes", "Pay", "Create", "Add", "Save");
         waitForPageToSettle();
     }
@@ -72,7 +83,9 @@ public class DashboardFlowObjects {
         selectFirstOptionForLabels("Bike", "VIN", "Ownership");
         selectDateIfPresent("Transfer Date", "Ownership Date", "Date");
         fillIfPresent("Automated ownership transfer to " + toCustomer.email, "remarks", "Remarks", "Note");
+        reviewBeforeAction("transfer-form-before-submit");
         clickFirstButton("Submit", "Transfer", "Save");
+        reviewBeforeAction("transfer-confirm-before-ok");
         confirmIfPresent("Yes", "Transfer", "Update", "Save");
         waitForPageToSettle();
     }
@@ -281,6 +294,31 @@ public class DashboardFlowObjects {
         }
     }
 
+    public void reviewBeforeAction(String name) {
+        try {
+            File dir = new File("screenshots/flow-review");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            String safeName = name.replaceAll("[^A-Za-z0-9._-]", "_");
+            long timestamp = System.currentTimeMillis();
+            File image = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+            FileUtils.copyFile(image, new File(dir, timestamp + "_" + safeName + ".png"));
+            FileUtils.writeStringToFile(
+                new File(dir, timestamp + "_" + safeName + ".html"),
+                driver.getPageSource(),
+                "UTF-8"
+            );
+            Thread.sleep(1200);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not save review screenshot for " + name, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted during review pause for " + name, e);
+        }
+    }
+
     public static class CustomerData {
         public final String firstName;
         public final String lastName;
@@ -290,7 +328,7 @@ public class DashboardFlowObjects {
         private CustomerData(String label) {
             this.firstName = label + TestDataGenerator.getRandomName();
             this.lastName = "Flow";
-            this.email = label.toLowerCase() + "." + System.currentTimeMillis() + "@yopmail.com";
+            this.email = TestDataGenerator.getSimpleYopmailEmail(label);
             this.phone = TestDataGenerator.getRandomPhoneNumber();
         }
 

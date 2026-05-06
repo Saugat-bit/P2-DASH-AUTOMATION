@@ -3,9 +3,14 @@ package utils;
 import org.apache.commons.lang3.RandomStringUtils;
 
 public class TestDataGenerator {
+    private static int emailCounter = 1;
 
     public static String getRandomEmail() {
-        return "auto" + RandomStringUtils.randomAlphanumeric(5) + "@yopmail.com";
+        return getSimpleYopmailEmail("staff");
+    }
+
+    public static synchronized String getSimpleYopmailEmail(String prefix) {
+        return prefix.toLowerCase() + emailCounter++ + "@yopmail.com";
     }
 
     public static String getRandomName() {

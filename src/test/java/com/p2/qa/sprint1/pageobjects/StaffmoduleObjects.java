@@ -1,6 +1,11 @@
 package com.p2.qa.sprint1.pageobjects;
 
+import java.io.File;
+import java.io.IOException;
+
 import org.openqa.selenium.By;
+import org.openqa.selenium.OutputType;
+import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.ui.WebDriverWait;
@@ -8,6 +13,7 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 import utils.ConfigReader;
 import utils.TestDataGenerator;
 
+import org.apache.commons.io.FileUtils;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.Keys;
 import java.time.Duration;
@@ -111,6 +117,7 @@ public class StaffmoduleObjects {
     
    public void updateStaff()
    {
+	   reviewBeforeAction("staff-confirm-before-update-staff");
 	   wait.until(ExpectedConditions.elementToBeClickable(updateStaffpopup)).click();;
    }
     
@@ -178,12 +185,39 @@ public class StaffmoduleObjects {
  
     
     public void clickCreateStaffButton() {
+        reviewBeforeAction("staff-form-before-add-staff");
         wait.until(ExpectedConditions.elementToBeClickable(createStaffButton)).click();
+        reviewBeforeAction("staff-confirm-before-add-staff");
         wait.until(ExpectedConditions.elementToBeClickable(addStaffpopup)).click();
     }
     
     public void clickUpdateStaffButton() {
+        reviewBeforeAction("staff-form-before-update-staff");
         wait.until(ExpectedConditions.elementToBeClickable(updateStaffButton)).click();
+    }
+
+    private void reviewBeforeAction(String name) {
+        try {
+            File dir = new File("screenshots/flow-review");
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+
+            long timestamp = System.currentTimeMillis();
+            File image = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
+            FileUtils.copyFile(image, new File(dir, timestamp + "_" + name + ".png"));
+            FileUtils.writeStringToFile(
+                new File(dir, timestamp + "_" + name + ".html"),
+                driver.getPageSource(),
+                "UTF-8"
+            );
+            Thread.sleep(1200);
+        } catch (IOException e) {
+            throw new RuntimeException("Could not save review screenshot for " + name, e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted during review pause for " + name, e);
+        }
     }
 
     public void searchStaff(String searchTerm) {
