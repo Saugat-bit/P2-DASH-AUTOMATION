@@ -5,7 +5,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 public class TestDataGenerator {
 
     public static String getRandomEmail() {
-        return "auto" + RandomStringUtils.randomAlphanumeric(5) + "@example.com";
+        return "auto" + RandomStringUtils.randomAlphanumeric(5) + "@yopmail.com";
     }
 
     public static String getRandomName() {
