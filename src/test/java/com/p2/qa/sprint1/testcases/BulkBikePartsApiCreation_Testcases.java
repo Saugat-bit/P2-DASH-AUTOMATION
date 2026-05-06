@@ -29,9 +29,9 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
     private static final String MANUFACTURED_DATE = "2026-05-03T18:15:00.000Z";
     private static final String PURCHASED_DATE = "2026-05-04T18:15:00.000Z";
     private static final String[] COMM_BOARD_ENDPOINTS = {
+        "/communication-board",
         "/comm-board",
         "/commboard",
-        "/communication-board",
         "/communicationboard"
     };
     private static final String[] KEY_FOB_ENDPOINTS = {
@@ -95,7 +95,7 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
             }
 
             if (includeCommBoard) {
-                createPart(COMM_BOARD_ENDPOINTS, commonPayload("COM", index));
+                createPart(COMM_BOARD_ENDPOINTS, communicationBoardPayload(index));
             }
 
             if ((offset + 1) % 100 == 0 || offset + 1 == partSetCount) {
@@ -140,6 +140,14 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
     private Map<String, Object> keyFobPayload(int index) {
         Map<String, Object> payload = commonPayload("KEY", index);
         payload.put("ble_name", "P2-KEY-" + eightDigitHex("BLE", index));
+        return payload;
+    }
+
+    private Map<String, Object> communicationBoardPayload(int index) {
+        Map<String, Object> payload = commonPayload("COM", index);
+        payload.put("hardware_type", hardwareType(index));
+        payload.put("software_version", version("COM", index));
+        payload.put("ble_name", "P2-COM-" + eightDigitHex("CBL", index));
         return payload;
     }
 
