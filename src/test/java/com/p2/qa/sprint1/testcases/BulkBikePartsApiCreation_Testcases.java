@@ -28,11 +28,24 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
     private static final String API_BASE_PATH = "/api";
     private static final String MANUFACTURED_DATE = "2026-05-03T18:15:00.000Z";
     private static final String PURCHASED_DATE = "2026-05-04T18:15:00.000Z";
+    private static final String[] COMM_BOARD_ENDPOINTS = {
+        "/comm-board",
+        "/commboard",
+        "/communication-board",
+        "/communicationboard"
+    };
+    private static final String[] KEY_FOB_ENDPOINTS = {
+        "/key-fob",
+        "/keyfob",
+        "/key-fobs",
+        "/keyfobs"
+    };
 
     private WebDriver driver;
     private Map<String, String> cookies;
     private int partSetCount;
     private int startIndex;
+    private boolean includeKeyFob;
     private boolean includeCommBoard;
     private int requestDelayMs;
     private int retryCount;
@@ -48,7 +61,8 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
 
         partSetCount = getIntProperty("bulk.parts.count", 1000);
         startIndex = getIntProperty("bulk.parts.start.index", 1);
-        includeCommBoard = Boolean.parseBoolean(getProperty("bulk.parts.include.commboard", "false"));
+        includeKeyFob = Boolean.parseBoolean(getProperty("bulk.parts.include.keyfob", "true"));
+        includeCommBoard = Boolean.parseBoolean(getProperty("bulk.parts.include.commboard", "true"));
         requestDelayMs = getIntProperty("bulk.parts.request.delay.ms", 100);
         retryCount = getIntProperty("bulk.parts.retry.count", 5);
 
@@ -71,13 +85,17 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
 
             createPart("/battery", batteryPayload(index));
             createPart("/display", displayPayload(index));
-            createPart("/charger", commonPayload("API-CHG-", index));
-            createPart("/motor-controller", commonPayload("API-MC-", index));
+            createPart("/charger", commonPayload("CHG", index));
+            createPart("/motor-controller", commonPayload("MCR", index));
             createPart("/vcu", vcuPayload(index));
-            createPart("/motor", commonPayload("API-MTR-", index));
+            createPart("/motor", commonPayload("MTR", index));
+
+            if (includeKeyFob) {
+                createPart(KEY_FOB_ENDPOINTS, keyFobPayload(index));
+            }
 
             if (includeCommBoard) {
-                createPart("/comm-board", commonPayload("API-COMM-", index));
+                createPart(COMM_BOARD_ENDPOINTS, commonPayload("COM", index));
             }
 
             if ((offset + 1) % 100 == 0 || offset + 1 == partSetCount) {
@@ -87,57 +105,99 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
     }
 
     private Map<String, Object> batteryPayload(int index) {
-        Map<String, Object> payload = commonPayload("API-BAT-", index);
+        Map<String, Object> payload = commonPayload("BAT", index);
         payload.put("bms_vendor_id", vendorId);
         payload.put("battery_type", "fixed");
-        payload.put("soc", 100);
-        payload.put("soh", 100);
+        payload.put("soc", 90 + (index % 11));
+        payload.put("soh", 95 + (index % 6));
         payload.put("cell_chemistry", "NMC");
         payload.put("series_parallel_string", "20S10P");
-        payload.put("design_voltage", "72");
-        payload.put("design_capacity", "50");
-        payload.put("max_charging_current", "20");
-        payload.put("max_discharging_current", "100");
+        payload.put("design_voltage", "72.0");
+        payload.put("design_capacity", "50.0");
+        payload.put("max_charging_current", "20.0");
+        payload.put("max_discharging_current", "100.0");
         return payload;
     }
 
     private Map<String, Object> displayPayload(int index) {
-        Map<String, Object> payload = commonPayload("API-DSP-", index);
-        payload.put("software_version_mcu", "1.0.0");
-        payload.put("software_version_arm", "1.0.0");
-        payload.put("software_version_fex", "1.0.0");
-        payload.put("hardware_type_mcu", "TYPE_ZERO");
-        payload.put("hardware_type_arm", "TYPE_ZERO");
-        payload.put("hardware_type_fex", "TYPE_ZERO");
+        Map<String, Object> payload = commonPayload("DSP", index);
+        payload.put("software_version_mcu", version("MCU", index));
+        payload.put("software_version_arm", version("ARM", index));
+        payload.put("software_version_fex", version("FEX", index));
+        payload.put("hardware_type_mcu", hardwareType(index));
+        payload.put("hardware_type_arm", hardwareType(index + 1));
+        payload.put("hardware_type_fex", hardwareType(index + 2));
         return payload;
     }
 
     private Map<String, Object> vcuPayload(int index) {
-        Map<String, Object> payload = commonPayload("API-VCU-", index);
-        payload.put("identifier", compactIdentifier("V", index));
-        payload.put("software_version", "1.0.0");
-        payload.put("hardware_type", "TYPE_ZERO");
+        Map<String, Object> payload = commonPayload("VCU", index);
+        payload.put("software_version", version("VCU", index));
+        payload.put("hardware_type", hardwareType(index));
         return payload;
     }
 
-    private Map<String, Object> commonPayload(String prefix, int index) {
+    private Map<String, Object> keyFobPayload(int index) {
+        Map<String, Object> payload = commonPayload("KEY", index);
+        payload.put("ble_name", "P2-KEY-" + eightDigitHex("BLE", index));
+        return payload;
+    }
+
+    private Map<String, Object> commonPayload(String partCode, int index) {
         Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("identifier", uniqueIdentifier(prefix, index));
+        payload.put("identifier", eightDigitHex(partCode, index));
         payload.put("manufactured_date", MANUFACTURED_DATE);
+        payload.put("purchased_date", PURCHASED_DATE);
         payload.put("vendor_id", vendorId);
         return payload;
     }
 
     private void createPart(String endpoint, Map<String, Object> payload) {
+        createPart(new String[] { endpoint }, payload);
+    }
+
+    private void createPart(String[] endpoints, Map<String, Object> payload) {
+        Response response = null;
+        for (String endpoint : endpoints) {
+            response = postPart(endpoint, payload);
+            if (response.statusCode() == 200 || response.statusCode() == 201) {
+                pause(requestDelayMs);
+                return;
+            }
+
+            if (response.statusCode() == 404) {
+                System.out.println("Part API endpoint not found: " + endpoint + ". Trying next alias.");
+                continue;
+            }
+
+            Assert.fail("Part API create failed for " + endpoint + " with payload " + payload + ": "
+                + response.asString());
+        }
+
+        Assert.fail("Part API create failed. None of these endpoints worked: "
+            + String.join(", ", endpoints) + ". Last response: "
+            + (response == null ? "none" : response.asString()));
+    }
+
+    private Response postPart(String endpoint, Map<String, Object> payload) {
         Response response = null;
         for (int attempt = 1; attempt <= retryCount; attempt++) {
             response = apiRequest()
                 .body(payload)
                 .post(API_BASE_PATH + endpoint);
 
+            if (response.statusCode() == 400
+                && payload.containsKey("purchased_date")
+                && response.asString().contains("property purchased_date should not exist")) {
+                Map<String, Object> payloadWithoutPurchaseDate = new LinkedHashMap<>(payload);
+                payloadWithoutPurchaseDate.remove("purchased_date");
+                response = apiRequest()
+                    .body(payloadWithoutPurchaseDate)
+                    .post(API_BASE_PATH + endpoint);
+            }
+
             if (response.statusCode() == 200 || response.statusCode() == 201) {
-                pause(requestDelayMs);
-                return;
+                return response;
             }
 
             if (response.statusCode() != 429 && response.statusCode() < 500) {
@@ -150,8 +210,7 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
             pause(waitMs);
         }
 
-        Assert.assertTrue(response.statusCode() == 200 || response.statusCode() == 201,
-            "Part API create failed for " + endpoint + " with payload " + payload + ": " + response.asString());
+        return response;
     }
 
     private void pause(int milliseconds) {
@@ -245,19 +304,21 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
         return result;
     }
 
-    private String uniqueIdentifier(String prefix, int index) {
-        return prefix + System.currentTimeMillis() + "-" + index;
+    private String eightDigitHex(String partCode, int index) {
+        long partSeed = Math.abs(partCode.hashCode()) & 0xFFL;
+        long timeSeed = System.currentTimeMillis() & 0xFFFL;
+        long seed = (partSeed << 24) + (timeSeed << 12) + (index & 0xFFFL);
+        String hex = Long.toHexString(seed).toUpperCase();
+        return hex.substring(hex.length() - 8);
     }
 
-    private String compactIdentifier(String prefix, int index) {
-        String timeSeed = Long.toString(System.currentTimeMillis() % 46656, 36).toUpperCase();
-        String indexSeed = Integer.toString(index % 1296, 36).toUpperCase();
-        return (prefix + leftPad(timeSeed, 3) + leftPad(indexSeed, 2)).substring(0, 6);
+    private String version(String component, int index) {
+        return component + "-" + (2 + (index % 3)) + "." + (index % 10) + "." + ((index / 10) % 10);
     }
 
-    private String leftPad(String value, int length) {
-        String padded = "0000" + value;
-        return padded.substring(padded.length() - length);
+    private String hardwareType(int index) {
+        String[] types = { "TYPE_ZERO", "TYPE_ONE", "TYPE_TWO", "TYPE_THREE", "TYPE_FOUR" };
+        return types[Math.floorMod(index, types.length)];
     }
 
     private int toInt(Object value) {
