@@ -46,15 +46,21 @@ public class DashboardFlowObjects {
         confirmIfPresent("Yes", "Register", "Create", "Add", "Save");
         waitForPageToSettle();
         customer.id = findCurrentOrFirstTableId(customer.email);
+        if (customer.id == null || customer.id.trim().isEmpty()) {
+            customer.id = System.getProperty("ui.flow.last.customer.id", "");
+        } else {
+            System.setProperty("ui.flow.last.customer.id", customer.id);
+        }
         return customer;
     }
 
     public void assignFirstAvailableBikeToCustomer(CustomerData customer) {
         String bikeId = getFirstBikeId();
+        requireCustomerId(customer, "assign-ownership");
         navigateTo("Bikes", "ownership", "ownerships");
         clickFirstButton("Add Ownership", "Assign Bike", "Create Ownership", "Add");
-        fillIfPresent(customer.id, "customer_id", "Customer ID", "Customer");
-        fillIfPresent(bikeId, "bike_id", "Bike ID", "Bike");
+        fillByExactLabel(customer.id, "Customer ID");
+        fillByExactLabel(bikeId, "Bike ID");
         selectDateIfPresent("Purchase Date", "Purchased Date", "Assigned Date", "Start Date");
         fillIfPresent("Initial automated ownership assignment", "remarks", "Remarks", "Note");
         reviewBeforeAction("ownership-form-before-submit");
@@ -83,11 +89,11 @@ public class DashboardFlowObjects {
 
     public void transferOwnership(CustomerData fromCustomer, CustomerData toCustomer) {
         String bikeId = getFirstBikeId();
+        requireCustomerId(toCustomer, "transfer-ownership");
         navigateTo("Bikes", "ownership", "ownerships");
         clickFirstButton("Transfer Ownership", "Transfer", "Change Owner");
-        fillIfPresent(fromCustomer.id, "current_customer_id", "from_customer_id", "Current Owner", "From Customer");
-        fillIfPresent(toCustomer.id, "new_customer_id", "to_customer_id", "New Owner", "To Customer");
-        fillIfPresent(bikeId, "bike_id", "Bike ID", "Bike");
+        fillByExactLabel(toCustomer.id, "New Customer ID");
+        fillByExactLabel(bikeId, "Bike ID");
         selectFirstOptionForLabels("Current Owner", "From Customer", "From Owner", "Customer");
         selectFirstOptionForLabels("New Owner", "To Customer", "To Owner", "Customer");
         selectFirstOptionForLabels("Bike", "VIN", "Ownership");
@@ -164,6 +170,24 @@ public class DashboardFlowObjects {
         }
     }
 
+    private void fillByExactLabel(String value, String label) {
+        if (value == null || value.trim().isEmpty()) {
+            return;
+        }
+
+        String normalizedLabel = label.toLowerCase();
+        By locator = By.xpath("//label[translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='"
+            + normalizedLabel + "' or translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz')='"
+            + normalizedLabel + "*']/following::input[1]");
+        try {
+            WebElement input = new WebDriverWait(driver, Duration.ofSeconds(5))
+                .until(ExpectedConditions.elementToBeClickable(locator));
+            fillInput(input, value);
+        } catch (Exception e) {
+            fillIfPresent(value, label);
+        }
+    }
+
     private String getFirstBikeId() {
         String configuredBikeId = ConfigReader.get("ui.flow.bike.id");
         if (configuredBikeId != null && !configuredBikeId.trim().isEmpty()) {
@@ -180,6 +204,14 @@ public class DashboardFlowObjects {
             return "1";
         }
         return id.trim();
+    }
+
+    private void requireCustomerId(CustomerData customer, String stepName) {
+        if (customer.id != null && !customer.id.trim().isEmpty()) {
+            return;
+        }
+        reviewBeforeAction(stepName + "-missing-customer-id");
+        throw new IllegalStateException("Could not capture customer ID for " + customer.email);
     }
 
     private String firstNumericTextNear(String... hints) {
@@ -258,9 +290,20 @@ public class DashboardFlowObjects {
 
     private void fillInput(WebElement input, String value) {
         scrollTo(input);
-        input.click();
-        input.sendKeys(Keys.chord(Keys.CONTROL, "a"));
-        input.sendKeys(value);
+        try {
+            input.click();
+            input.sendKeys(Keys.chord(Keys.CONTROL, "a"));
+            input.sendKeys(value);
+        } catch (Exception ignore) {
+        }
+        ((JavascriptExecutor) driver).executeScript(
+            "arguments[0].value = arguments[1];"
+                + "arguments[0].dispatchEvent(new Event('input', { bubbles: true }));"
+                + "arguments[0].dispatchEvent(new Event('change', { bubbles: true }));"
+                + "arguments[0].dispatchEvent(new Event('blur', { bubbles: true }));",
+            input,
+            value
+        );
     }
 
     private void selectFirstOptionForLabels(String... labels) {
