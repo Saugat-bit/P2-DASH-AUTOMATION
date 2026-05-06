@@ -459,8 +459,8 @@ public class DashboardFlowObjects {
         private CustomerData(String label) {
             this.firstName = label + TestDataGenerator.getRandomName();
             this.lastName = "Flow";
-            this.email = TestDataGenerator.getSimpleYopmailEmail(label);
-            this.phone = TestDataGenerator.getRandomPhoneNumber();
+            this.email = TestDataGenerator.getSimpleYopmailEmail("customer");
+            this.phone = TestDataGenerator.getValidNepaliPhoneNumber();
         }
 
         public static CustomerData random(String label) {

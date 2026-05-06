@@ -6,6 +6,7 @@ import java.util.Map;
 
 public class TestDataGenerator {
     private static final Map<String, Integer> emailCounters = new HashMap<>();
+    private static int phoneCounter = 1;
 
     public static String getRandomEmail() {
         return getSimpleYopmailEmail("staff");
@@ -23,7 +24,12 @@ public class TestDataGenerator {
     }
 
     public static String getRandomPhoneNumber() {
-        return "98" + RandomStringUtils.randomNumeric(8);
+        return getValidNepaliPhoneNumber();
+    }
+
+    public static synchronized String getValidNepaliPhoneNumber() {
+        String suffix = String.format("%06d", phoneCounter++ % 1000000);
+        return "9745" + suffix;
     }
 
     public static String getRandomAlphanumeric(int length) {
