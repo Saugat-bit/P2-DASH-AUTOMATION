@@ -35,7 +35,6 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
     private int startIndex;
     private boolean includeCommBoard;
     private int vendorId;
-    private Integer hardwareVersionId;
 
     @BeforeClass
     public void setUp() {
@@ -59,11 +58,6 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
         RestAssured.baseURI = ConfigReader.get("base.url").replaceAll("/+$", "");
 
         vendorId = getConfiguredOrFirstId("bulk.parts.vendor.id", "/vendor?q=&limit=1");
-        hardwareVersionId = getOptionalFirstId(
-            "/hardware-version?q=&limit=1",
-            "/vcu-hardware-version?q=&limit=1",
-            "/vcu/hardware-version?q=&limit=1"
-        );
     }
 
     @Test(description = "Create bike parts directly through dashboard API for fast bulk bike creation")
@@ -116,10 +110,9 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
 
     private Map<String, Object> vcuPayload(int index) {
         Map<String, Object> payload = commonPayload("API-VCU-", index);
+        payload.put("identifier", compactIdentifier("V", index));
         payload.put("software_version", "1.0.0");
-        if (hardwareVersionId != null) {
-            payload.put("hardware_version_id", hardwareVersionId);
-        }
+        payload.put("hardware_type", "TYPE_ZERO");
         return payload;
     }
 
@@ -221,6 +214,17 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
 
     private String uniqueIdentifier(String prefix, int index) {
         return prefix + System.currentTimeMillis() + "-" + index;
+    }
+
+    private String compactIdentifier(String prefix, int index) {
+        String timeSeed = Long.toString(System.currentTimeMillis() % 46656, 36).toUpperCase();
+        String indexSeed = Integer.toString(index % 1296, 36).toUpperCase();
+        return (prefix + leftPad(timeSeed, 3) + leftPad(indexSeed, 2)).substring(0, 6);
+    }
+
+    private String leftPad(String value, int length) {
+        String padded = "0000" + value;
+        return padded.substring(padded.length() - length);
     }
 
     private int toInt(Object value) {
