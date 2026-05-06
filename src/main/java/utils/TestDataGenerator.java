@@ -1,16 +1,21 @@
 package utils;
 
 import org.apache.commons.lang3.RandomStringUtils;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TestDataGenerator {
-    private static int emailCounter = 1;
+    private static final Map<String, Integer> emailCounters = new HashMap<>();
 
     public static String getRandomEmail() {
         return getSimpleYopmailEmail("staff");
     }
 
     public static synchronized String getSimpleYopmailEmail(String prefix) {
-        return prefix.toLowerCase() + emailCounter++ + "@yopmail.com";
+        String normalizedPrefix = prefix.toLowerCase().replaceAll("[^a-z0-9]", "");
+        int nextValue = emailCounters.getOrDefault(normalizedPrefix, 0) + 1;
+        emailCounters.put(normalizedPrefix, nextValue);
+        return normalizedPrefix + nextValue + "@yopmail.com";
     }
 
     public static String getRandomName() {

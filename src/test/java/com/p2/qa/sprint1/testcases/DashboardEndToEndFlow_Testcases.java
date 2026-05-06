@@ -40,7 +40,7 @@ public class DashboardEndToEndFlow_Testcases extends Base {
         CustomerData firstCustomer = flow.createCustomer("customer");
         Assert.assertTrue(firstCustomer.email.endsWith("@yopmail.com"), "Customer email must use yopmail.com");
 
-        CustomerData transferCustomer = flow.createCustomer("transfer");
+        CustomerData transferCustomer = flow.createCustomer("customer");
         Assert.assertTrue(transferCustomer.email.endsWith("@yopmail.com"), "Transfer customer email must use yopmail.com");
 
         flow.assignFirstAvailableBikeToCustomer(firstCustomer);

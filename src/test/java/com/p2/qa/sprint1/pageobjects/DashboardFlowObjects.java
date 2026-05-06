@@ -37,19 +37,23 @@ public class DashboardFlowObjects {
         fillIfPresent(customer.firstName, "firstName", "first_name", "First Name", "First");
         fillIfPresent(customer.lastName, "lastName", "last_name", "Last Name", "Last");
         fillIfPresent(customer.phone, "phone", "phone_number", "Phone Number", "Phone");
+        selectFirstOptionForLabels("Gender");
+        selectDateIfPresent("Date of Birth", "Birth");
         reviewBeforeAction("customer-form-before-submit");
         clickFirstButton("Submit", "Register", "Create", "Save");
         reviewBeforeAction("customer-confirm-before-ok");
         confirmIfPresent("Yes", "Register", "Create", "Add", "Save");
         waitForPageToSettle();
+        customer.id = findCurrentOrFirstTableId(customer.email);
         return customer;
     }
 
     public void assignFirstAvailableBikeToCustomer(CustomerData customer) {
+        String bikeId = getFirstBikeId();
         navigateTo("Bikes", "ownership", "ownerships");
         clickFirstButton("Add Ownership", "Assign Bike", "Create Ownership", "Add");
-        selectFirstOptionForLabels("Customer", "Owner");
-        selectFirstOptionForLabels("Bike", "VIN", "License Plate");
+        fillIfPresent(customer.id, "customer_id", "Customer ID", "Customer");
+        fillIfPresent(bikeId, "bike_id", "Bike ID", "Bike");
         selectDateIfPresent("Purchase Date", "Purchased Date", "Assigned Date", "Start Date");
         fillIfPresent("Initial automated ownership assignment", "remarks", "Remarks", "Note");
         reviewBeforeAction("ownership-form-before-submit");
@@ -62,6 +66,7 @@ public class DashboardFlowObjects {
     public void makePaymentForCustomer(CustomerData customer) {
         navigateTo("Payments", "payments", "payment");
         clickFirstButton("Add Payment", "Make Payment", "Create Payment", "Add");
+        fillIfPresent(customer.id, "customer_id", "Customer ID", "Customer");
         selectFirstOptionForLabels("Customer", "Owner");
         selectFirstOptionForLabels("Bike", "Ownership", "VIN");
         fillIfPresent("25000", "amount", "Amount", "Payment Amount");
@@ -76,8 +81,12 @@ public class DashboardFlowObjects {
     }
 
     public void transferOwnership(CustomerData fromCustomer, CustomerData toCustomer) {
+        String bikeId = getFirstBikeId();
         navigateTo("Bikes", "ownership", "ownerships");
         clickFirstButton("Transfer Ownership", "Transfer", "Change Owner");
+        fillIfPresent(fromCustomer.id, "current_customer_id", "from_customer_id", "Current Owner", "From Customer");
+        fillIfPresent(toCustomer.id, "new_customer_id", "to_customer_id", "New Owner", "To Customer");
+        fillIfPresent(bikeId, "bike_id", "Bike ID", "Bike");
         selectFirstOptionForLabels("Current Owner", "From Customer", "From Owner", "Customer");
         selectFirstOptionForLabels("New Owner", "To Customer", "To Owner", "Customer");
         selectFirstOptionForLabels("Bike", "VIN", "Ownership");
@@ -142,12 +151,50 @@ public class DashboardFlowObjects {
     }
 
     private void fillIfPresent(String value, String... hints) {
+        if (value == null || value.trim().isEmpty()) {
+            return;
+        }
         for (String hint : hints) {
             WebElement input = findInput(hint, 1);
             if (input != null) {
                 fillInput(input, value);
                 return;
             }
+        }
+    }
+
+    private String getFirstBikeId() {
+        navigateTo("Bikes", "bikes", "bike");
+        String id = firstTableCellText(1);
+        if (id == null || id.trim().isEmpty()) {
+            throw new IllegalStateException("Could not find a bike ID in the Bikes table.");
+        }
+        return id.trim();
+    }
+
+    private String findCurrentOrFirstTableId(String searchValue) {
+        if (searchValue != null && !searchValue.trim().isEmpty()) {
+            WebElement search = findInput("Search", 1);
+            if (search != null) {
+                fillInput(search, searchValue);
+                search.sendKeys(Keys.ENTER);
+                waitForPageToSettle();
+            }
+        }
+
+        String id = firstTableCellText(1);
+        return id == null ? "" : id.trim();
+    }
+
+    private String firstTableCellText(int columnIndex) {
+        try {
+            WebElement cell = new WebDriverWait(driver, Duration.ofSeconds(5))
+                .until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//table/tbody/tr[1]/td[" + columnIndex + "]")
+                ));
+            return cell.getText();
+        } catch (Exception e) {
+            return "";
         }
     }
 
@@ -324,6 +371,7 @@ public class DashboardFlowObjects {
         public final String lastName;
         public final String email;
         public final String phone;
+        public String id;
 
         private CustomerData(String label) {
             this.firstName = label + TestDataGenerator.getRandomName();
