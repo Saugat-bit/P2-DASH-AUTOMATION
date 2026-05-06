@@ -36,7 +36,6 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
     private boolean includeCommBoard;
     private int vendorId;
     private Integer hardwareVersionId;
-    private Integer hardwareTypeId;
 
     @BeforeClass
     public void setUp() {
@@ -64,11 +63,6 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
             "/hardware-version?q=&limit=1",
             "/vcu-hardware-version?q=&limit=1",
             "/vcu/hardware-version?q=&limit=1"
-        );
-        hardwareTypeId = getOptionalFirstId(
-            "/hardware-type?q=&limit=1",
-            "/display-hardware-type?q=&limit=1",
-            "/display/hardware-type?q=&limit=1"
         );
     }
 
@@ -114,9 +108,9 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
         payload.put("software_version_mcu", "1.0.0");
         payload.put("software_version_arm", "1.0.0");
         payload.put("software_version_fex", "1.0.0");
-        if (hardwareTypeId != null) {
-            payload.put("hardware_type_id", hardwareTypeId);
-        }
+        payload.put("hardware_type_mcu", "TYPE_ZERO");
+        payload.put("hardware_type_arm", "TYPE_ZERO");
+        payload.put("hardware_type_fex", "TYPE_ZERO");
         return payload;
     }
 
