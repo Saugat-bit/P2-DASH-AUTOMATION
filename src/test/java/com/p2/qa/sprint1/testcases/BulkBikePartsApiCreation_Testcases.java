@@ -34,6 +34,8 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
     private int partSetCount;
     private int startIndex;
     private boolean includeCommBoard;
+    private int requestDelayMs;
+    private int retryCount;
     private int vendorId;
 
     @BeforeClass
@@ -47,6 +49,8 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
         partSetCount = getIntProperty("bulk.parts.count", 1000);
         startIndex = getIntProperty("bulk.parts.start.index", 1);
         includeCommBoard = Boolean.parseBoolean(getProperty("bulk.parts.include.commboard", "false"));
+        requestDelayMs = getIntProperty("bulk.parts.request.delay.ms", 100);
+        retryCount = getIntProperty("bulk.parts.retry.count", 5);
 
         driver = initializeBrowserAndOpenApplication();
         driver.manage().deleteAllCookies();
@@ -125,12 +129,41 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
     }
 
     private void createPart(String endpoint, Map<String, Object> payload) {
-        Response response = apiRequest()
-            .body(payload)
-            .post(API_BASE_PATH + endpoint);
+        Response response = null;
+        for (int attempt = 1; attempt <= retryCount; attempt++) {
+            response = apiRequest()
+                .body(payload)
+                .post(API_BASE_PATH + endpoint);
+
+            if (response.statusCode() == 200 || response.statusCode() == 201) {
+                pause(requestDelayMs);
+                return;
+            }
+
+            if (response.statusCode() != 429 && response.statusCode() < 500) {
+                break;
+            }
+
+            int waitMs = Math.min(30000, 2000 * attempt);
+            System.out.println("Part API " + endpoint + " returned " + response.statusCode()
+                + ". Retry " + attempt + "/" + retryCount + " after " + waitMs + " ms.");
+            pause(waitMs);
+        }
 
         Assert.assertTrue(response.statusCode() == 200 || response.statusCode() == 201,
             "Part API create failed for " + endpoint + " with payload " + payload + ": " + response.asString());
+    }
+
+    private void pause(int milliseconds) {
+        if (milliseconds <= 0) {
+            return;
+        }
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while waiting between API requests", e);
+        }
     }
 
     private io.restassured.specification.RequestSpecification apiRequest() {
