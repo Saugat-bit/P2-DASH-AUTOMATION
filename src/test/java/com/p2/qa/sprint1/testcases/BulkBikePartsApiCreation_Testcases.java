@@ -46,7 +46,7 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
 
         partSetCount = getIntProperty("bulk.parts.count", 1000);
         startIndex = getIntProperty("bulk.parts.start.index", 1);
-        includeCommBoard = Boolean.parseBoolean(getProperty("bulk.parts.include.commboard", "true"));
+        includeCommBoard = Boolean.parseBoolean(getProperty("bulk.parts.include.commboard", "false"));
 
         driver = initializeBrowserAndOpenApplication();
         driver.manage().deleteAllCookies();
