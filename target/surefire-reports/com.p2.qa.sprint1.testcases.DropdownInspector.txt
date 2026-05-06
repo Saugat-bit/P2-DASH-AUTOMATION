@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.p2.qa.sprint1.testcases.DropdownInspector
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 21.03 s -- in com.p2.qa.sprint1.testcases.DropdownInspector
