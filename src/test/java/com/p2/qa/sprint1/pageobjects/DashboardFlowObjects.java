@@ -17,6 +17,7 @@ import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
 import org.apache.commons.io.FileUtils;
 
+import utils.ConfigReader;
 import utils.TestDataGenerator;
 
 public class DashboardFlowObjects {
@@ -164,12 +165,51 @@ public class DashboardFlowObjects {
     }
 
     private String getFirstBikeId() {
+        String configuredBikeId = ConfigReader.get("ui.flow.bike.id");
+        if (configuredBikeId != null && !configuredBikeId.trim().isEmpty()) {
+            return configuredBikeId.trim();
+        }
+
         navigateTo("Bikes", "bikes", "bike");
         String id = firstTableCellText(1);
         if (id == null || id.trim().isEmpty()) {
-            throw new IllegalStateException("Could not find a bike ID in the Bikes table.");
+            id = firstNumericTextNear("Bike ID", "ID", "VIN");
+        }
+        if (id == null || id.trim().isEmpty()) {
+            reviewBeforeAction("bike-list-before-id-lookup-failed");
+            return "1";
         }
         return id.trim();
+    }
+
+    private String firstNumericTextNear(String... hints) {
+        for (String hint : hints) {
+            String lower = hint.toLowerCase();
+            By locator = By.xpath("//*[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
+                + lower + "')]/following::*[normalize-space()][position() <= 20]");
+            String value = firstNumericText(locator);
+            if (value != null && !value.trim().isEmpty()) {
+                return value.trim();
+            }
+        }
+
+        return firstNumericText(By.xpath("//table//tbody//tr[1]//td[normalize-space()]"));
+    }
+
+    private String firstNumericText(By locator) {
+        try {
+            java.util.List<WebElement> elements = new WebDriverWait(driver, Duration.ofSeconds(2))
+                .until(ExpectedConditions.visibilityOfAllElementsLocatedBy(locator));
+            for (WebElement element : elements) {
+                String text = element.getText();
+                if (text != null && text.trim().matches("[0-9]+")) {
+                    return text.trim();
+                }
+            }
+            return "";
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     private String findCurrentOrFirstTableId(String searchValue) {
