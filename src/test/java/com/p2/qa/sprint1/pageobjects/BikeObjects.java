@@ -7,11 +7,12 @@ import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.Select;
 import org.openqa.selenium.support.ui.WebDriverWait;
-import org.testng.Assert;
 import com.p2.automationbase.Base;
 
 import java.time.Duration;
+import java.util.List;
 
 public class BikeObjects extends Base {
     
@@ -73,26 +74,56 @@ public class BikeObjects extends Base {
         wait.until(ExpectedConditions.visibilityOfElementLocated(bikeModelBtn));
     }
     
-    private void selectDropdown(By locator, String value) throws InterruptedException {
-        WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(locator));
-        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", btn);
-        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", btn);
-        WebElement option = findVisibleDropdownOption(value);
-        if (option != null) {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", option);
-        } else {
-            new Actions(driver).sendKeys(Keys.ARROW_DOWN).sendKeys(Keys.ENTER).perform();
+    private void selectDropdown(By locator, String value) {
+        if (selectNativeDropdownNear(locator, value)) {
+            return;
         }
-        waitForRadixSelectToClose();
+
+        RuntimeException lastError = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                WebElement btn = wait.until(ExpectedConditions.elementToBeClickable(locator));
+                ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView({block: 'center'});", btn);
+                String beforeText = btn.getText();
+                clickElement(btn);
+
+                WebElement option = findVisibleDropdownOption(value);
+                if (option != null) {
+                    clickElement(option);
+                } else {
+                    chooseFocusedDropdownOption(value);
+                }
+
+                waitForRadixSelectToClose();
+                waitUntilDropdownChanged(locator, beforeText);
+                return;
+            } catch (RuntimeException e) {
+                lastError = e;
+                dismissOpenDropdown();
+            }
+        }
+
+        throw lastError;
     }
 
     private WebElement findVisibleDropdownOption(String value) {
-        WebDriverWait dropdownWait = new WebDriverWait(driver, Duration.ofSeconds(5));
+        WebDriverWait dropdownWait = new WebDriverWait(driver, Duration.ofSeconds(3));
         By radixOption = By.xpath("//*[@role='listbox' and @data-state='open']//*[@role='option' and not(@aria-disabled='true')]");
         By exactTextOption = By.xpath("//*[normalize-space()='" + value + "' and not(self::label) and not(self::button)]");
 
         try {
-            return dropdownWait.until(ExpectedConditions.visibilityOfElementLocated(radixOption));
+            List<WebElement> options = dropdownWait.until(ExpectedConditions.visibilityOfAllElementsLocatedBy(radixOption));
+            if (options.isEmpty()) {
+                return null;
+            }
+
+            for (WebElement option : options) {
+                if (option.isDisplayed() && value != null && option.getText().trim().equalsIgnoreCase(value)) {
+                    return option;
+                }
+            }
+
+            return firstDisplayedElement(options);
         } catch (Exception ignore) {
         }
 
@@ -106,7 +137,77 @@ public class BikeObjects extends Base {
         return null;
     }
 
-    public void fillAddBikeForm(String bikeName, String vin) throws InterruptedException {
+    private boolean selectNativeDropdownNear(By buttonLocator, String value) {
+        try {
+            WebElement button = driver.findElement(buttonLocator);
+            WebElement fieldContainer = button.findElement(By.xpath("./ancestor::*[.//label][1]"));
+            List<WebElement> selects = fieldContainer.findElements(By.tagName("select"));
+            if (selects.isEmpty()) {
+                return false;
+            }
+
+            Select select = new Select(selects.get(0));
+            try {
+                select.selectByVisibleText(value);
+            } catch (Exception e) {
+                select.selectByIndex(1);
+            }
+            return true;
+        } catch (Exception ignore) {
+            return false;
+        }
+    }
+
+    private WebElement firstDisplayedElement(List<WebElement> elements) {
+        for (WebElement element : elements) {
+            if (element.isDisplayed()) {
+                return element;
+            }
+        }
+        return elements.get(0);
+    }
+
+    private void clickElement(WebElement element) {
+        try {
+            new Actions(driver).moveToElement(element).click().perform();
+        } catch (Exception e) {
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
+        }
+    }
+
+    private void chooseFocusedDropdownOption(String value) {
+        Actions keySelection = new Actions(driver);
+        if (value != null && !"1".equals(value.trim())) {
+            keySelection.sendKeys(value);
+        } else {
+            keySelection.sendKeys(Keys.ARROW_DOWN);
+        }
+        keySelection.sendKeys(Keys.ENTER).perform();
+    }
+
+    private void waitUntilDropdownChanged(By locator, String beforeText) {
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(5)).until(driver -> {
+                WebElement selectedButton = driver.findElement(locator);
+                String selectedText = selectedButton.getText();
+                return selectedText != null
+                    && !selectedText.trim().isEmpty()
+                    && !selectedText.equals(beforeText)
+                    && !selectedText.toLowerCase().contains("select");
+            });
+        } catch (Exception ignore) {
+        }
+    }
+
+    private void dismissOpenDropdown() {
+        try {
+            new Actions(driver).sendKeys(Keys.ESCAPE).perform();
+            Thread.sleep(300);
+        } catch (Exception ignore) {
+        }
+    }
+
+    public void fillAddBikeForm(String bikeName, String vin) {
         // Model
         selectDropdown(bikeModelBtn, "P2"); // Assuming we want first option
         
@@ -149,16 +250,25 @@ public class BikeObjects extends Base {
         confirmAddBikeIfPresent();
     }
 
-    private void selectManufacturedDate() throws InterruptedException {
+    private void selectManufacturedDate() {
         WebElement dateBtn = wait.until(ExpectedConditions.elementToBeClickable(mfgDateBtn));
         ((JavascriptExecutor) driver).executeScript("arguments[0].click();", dateBtn);
-        Thread.sleep(500);
+        waitForDatePickerToOpen();
 
         WebElement dayButton = wait.until(ExpectedConditions.elementToBeClickable(
             By.xpath("(//button[normalize-space()='4' and not(@disabled)])[last()]")
         ));
         ((JavascriptExecutor) driver).executeScript("arguments[0].click();", dayButton);
-        Thread.sleep(500);
+    }
+
+    private void waitForDatePickerToOpen() {
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(5))
+                .until(ExpectedConditions.presenceOfElementLocated(
+                    By.xpath("//button[normalize-space()='4' and not(@disabled)]")
+                ));
+        } catch (Exception ignore) {
+        }
     }
 
     private void confirmAddBikeIfPresent() {
@@ -183,6 +293,7 @@ public class BikeObjects extends Base {
                     By.xpath("//*[@role='listbox' and @data-state='open']")
                 ));
         } catch (Exception ignore) {
+            dismissOpenDropdown();
             ((JavascriptExecutor) driver).executeScript("if (document.activeElement) { document.activeElement.blur(); }");
         }
     }

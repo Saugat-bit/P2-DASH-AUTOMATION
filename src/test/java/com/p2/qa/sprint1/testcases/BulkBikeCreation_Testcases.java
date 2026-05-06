@@ -24,6 +24,8 @@ public class BulkBikeCreation_Testcases extends Base {
     private BikePartsObjects bikePartsPage;
     private BikeObjects bikePage;
     private int bikeCount;
+    private int startIndex;
+    private int retryCount;
     private String vendorName;
 
     @BeforeClass
@@ -37,6 +39,14 @@ public class BulkBikeCreation_Testcases extends Base {
         bikeCount = getIntProperty("bulk.bike.count", 1000);
         if (bikeCount < 1) {
             throw new IllegalArgumentException("bulk.bike.count must be at least 1");
+        }
+        startIndex = getIntProperty("bulk.bike.start.index", 1);
+        if (startIndex < 1) {
+            throw new IllegalArgumentException("bulk.bike.start.index must be at least 1");
+        }
+        retryCount = getIntProperty("bulk.bike.retry.count", 2);
+        if (retryCount < 1) {
+            throw new IllegalArgumentException("bulk.bike.retry.count must be at least 1");
         }
 
         driver = initializeBrowserAndOpenApplication();
@@ -54,12 +64,14 @@ public class BulkBikeCreation_Testcases extends Base {
     public void createBulkBikes() throws InterruptedException {
         createBulkVendor();
 
-        for (int i = 1; i <= bikeCount; i++) {
-            createRequiredPartsForBike(i);
-            createBike(i);
+        int endIndex = startIndex + bikeCount - 1;
+        for (int i = startIndex; i <= endIndex; i++) {
+            createBikeWithRetry(i);
 
-            if (i % 25 == 0 || i == bikeCount) {
-                System.out.println("Bulk bike progress: " + i + "/" + bikeCount + " bikes submitted");
+            int completed = i - startIndex + 1;
+            if (completed % 25 == 0 || completed == bikeCount) {
+                System.out.println("Bulk bike progress: " + completed + "/" + bikeCount
+                    + " bikes submitted. Last index: " + i);
             }
         }
 
@@ -77,6 +89,26 @@ public class BulkBikeCreation_Testcases extends Base {
         Thread.sleep(2000);
 
         Assert.assertEquals(vendorPage.getFirstVendorName(), vendorName, "Bulk vendor was not created");
+    }
+
+    private void createBikeWithRetry(int index) throws InterruptedException {
+        RuntimeException lastFailure = null;
+
+        for (int attempt = 1; attempt <= retryCount; attempt++) {
+            try {
+                System.out.println("Creating bulk bike index " + index + " attempt " + attempt + "/" + retryCount);
+                createRequiredPartsForBike(index);
+                createBike(index);
+                return;
+            } catch (RuntimeException e) {
+                lastFailure = e;
+                System.out.println("Bulk bike index " + index + " failed on attempt " + attempt + ": " + e.getMessage());
+                recoverUi();
+            }
+        }
+
+        throw new AssertionError("Could not create bulk bike index " + index
+            + ". Resume with -Dbulk.bike.start.index=" + index, lastFailure);
     }
 
     private void createRequiredPartsForBike(int index) {
@@ -121,6 +153,15 @@ public class BulkBikeCreation_Testcases extends Base {
         String vin = generateHexIdentifier("vin", index);
 
         bikePage.createBikeWithFirstAvailableParts(bikeName, vin);
+    }
+
+    private void recoverUi() {
+        try {
+            driver.navigate().refresh();
+            Thread.sleep(3000);
+        } catch (Exception e) {
+            System.out.println("Bulk recovery refresh failed: " + e.getMessage());
+        }
     }
 
     private boolean isBulkCreationConfirmed() {
