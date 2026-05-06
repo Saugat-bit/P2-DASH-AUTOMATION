@@ -3,6 +3,8 @@ package com.p2.qa.sprint1.pageobjects;
 import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.JavascriptExecutor;
@@ -45,13 +47,42 @@ public class DashboardFlowObjects {
         reviewBeforeAction("customer-confirm-before-ok");
         confirmIfPresent("Yes", "Register", "Create", "Add", "Save");
         waitForPageToSettle();
-        customer.id = findCurrentOrFirstTableId(customer.email);
+        customer.id = captureCustomerId(customer);
         if (customer.id == null || customer.id.trim().isEmpty()) {
             customer.id = System.getProperty("ui.flow.last.customer.id", "");
         } else {
             System.setProperty("ui.flow.last.customer.id", customer.id);
         }
         return customer;
+    }
+
+    private String captureCustomerId(CustomerData customer) {
+        waitForPageToSettle();
+        reviewBeforeAction("customer-after-register-before-id-capture");
+
+        String id = customerIdFromUrl();
+        if (hasText(id)) {
+            return id;
+        }
+
+        id = firstNumericTextNear("Customer ID", "Customer Id", "ID");
+        if (hasText(id)) {
+            return id;
+        }
+
+        openCustomerList();
+        id = findCurrentOrFirstTableId(customer.email);
+        if (hasText(id)) {
+            return id;
+        }
+
+        id = findNumericTableIdInRowContaining(customer.email);
+        if (hasText(id)) {
+            return id;
+        }
+
+        reviewBeforeAction("customer-id-lookup-failed");
+        return "";
     }
 
     public void assignFirstAvailableBikeToCustomer(CustomerData customer) {
@@ -246,7 +277,7 @@ public class DashboardFlowObjects {
 
     private String findCurrentOrFirstTableId(String searchValue) {
         if (searchValue != null && !searchValue.trim().isEmpty()) {
-            WebElement search = findInput("Search", 1);
+            WebElement search = findInput("Search", 3);
             if (search != null) {
                 fillInput(search, searchValue);
                 search.sendKeys(Keys.ENTER);
@@ -256,6 +287,63 @@ public class DashboardFlowObjects {
 
         String id = firstTableCellText(1);
         return id == null ? "" : id.trim();
+    }
+
+    private void openCustomerList() {
+        navigateTo("Customers", "customers", "customer");
+        if (!driver.getCurrentUrl().toLowerCase().matches(".*/customers?/?$")) {
+            String baseUrl = ConfigReader.get("base.url");
+            if (baseUrl != null && !baseUrl.trim().isEmpty()) {
+                String normalizedBase = baseUrl.replaceAll("/+$", "");
+                driver.get(normalizedBase + "/customer");
+                waitForPageToSettle();
+            }
+        }
+    }
+
+    private String customerIdFromUrl() {
+        String url = driver.getCurrentUrl();
+        if (url == null) {
+            return "";
+        }
+
+        Matcher pathMatcher = Pattern.compile("(?i)/(?:customer|customers)/(\\d+)(?:\\b|/|\\?|#)").matcher(url);
+        if (pathMatcher.find()) {
+            return pathMatcher.group(1);
+        }
+
+        Matcher queryMatcher = Pattern.compile("(?i)(?:\\?|&)(?:id|customerId|customer_id)=(\\d+)").matcher(url);
+        return queryMatcher.find() ? queryMatcher.group(1) : "";
+    }
+
+    private String findNumericTableIdInRowContaining(String value) {
+        if (!hasText(value)) {
+            return "";
+        }
+
+        String lower = value.toLowerCase();
+        By rows = By.xpath("//table//tbody//tr[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
+            + lower + "')]");
+        try {
+            java.util.List<WebElement> matchingRows = new WebDriverWait(driver, Duration.ofSeconds(5))
+                .until(ExpectedConditions.visibilityOfAllElementsLocatedBy(rows));
+            for (WebElement row : matchingRows) {
+                for (WebElement cell : row.findElements(By.xpath("./td"))) {
+                    String text = cell.getText();
+                    if (text != null && text.trim().matches("[0-9]+")) {
+                        return text.trim();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            return "";
+        }
+
+        return "";
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private String firstTableCellText(int columnIndex) {

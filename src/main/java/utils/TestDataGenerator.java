@@ -6,7 +6,11 @@ import java.util.Map;
 
 public class TestDataGenerator {
     private static final Map<String, Integer> emailCounters = new HashMap<>();
-    private static int phoneCounter = 1;
+    private static final int runSeed = Integer.getInteger(
+        "ui.flow.email.start.index",
+        (int) ((System.currentTimeMillis() / 1000) % 900000)
+    );
+    private static int phoneCounter = Math.max(1, runSeed % 1000000);
 
     public static String getRandomEmail() {
         return getSimpleYopmailEmail("staff");
@@ -14,7 +18,7 @@ public class TestDataGenerator {
 
     public static synchronized String getSimpleYopmailEmail(String prefix) {
         String normalizedPrefix = prefix.toLowerCase().replaceAll("[^a-z0-9]", "");
-        int nextValue = emailCounters.getOrDefault(normalizedPrefix, 0) + 1;
+        int nextValue = emailCounters.getOrDefault(normalizedPrefix, runSeed) + 1;
         emailCounters.put(normalizedPrefix, nextValue);
         return normalizedPrefix + nextValue + "@yopmail.com";
     }
