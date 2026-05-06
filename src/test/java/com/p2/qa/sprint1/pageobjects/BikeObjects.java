@@ -302,7 +302,20 @@ public class BikeObjects extends Base {
         navigateToBikes();
         fillAddBikeForm(bikeName, vin);
         clickSubmit();
-        Thread.sleep(2000);
+        waitForBikeSubmitToSettle();
+    }
+
+    private void waitForBikeSubmitToSettle() {
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(15))
+                .until(ExpectedConditions.or(
+                    ExpectedConditions.elementToBeClickable(addNewBikeBtn),
+                    ExpectedConditions.urlContains("/bikes"),
+                    ExpectedConditions.urlContains("/bike"),
+                    ExpectedConditions.presenceOfElementLocated(toastOrAlert)
+                ));
+        } catch (Exception ignore) {
+        }
     }
 
     public String getVisibleFeedbackText() {

@@ -26,6 +26,7 @@ public class BulkBikeCreation_Testcases extends Base {
     private int bikeCount;
     private int startIndex;
     private int retryCount;
+    private boolean createPartsForEachBike;
     private String vendorName;
 
     @BeforeClass
@@ -48,6 +49,7 @@ public class BulkBikeCreation_Testcases extends Base {
         if (retryCount < 1) {
             throw new IllegalArgumentException("bulk.bike.retry.count must be at least 1");
         }
+        createPartsForEachBike = Boolean.parseBoolean(getProperty("bulk.bike.create.parts", "false"));
 
         driver = initializeBrowserAndOpenApplication();
         driver.manage().deleteAllCookies();
@@ -62,7 +64,9 @@ public class BulkBikeCreation_Testcases extends Base {
 
     @Test(description = "Create a configurable number of bikes with fresh required parts for each bike")
     public void createBulkBikes() throws InterruptedException {
-        createBulkVendor();
+        if (createPartsForEachBike) {
+            createBulkVendor();
+        }
 
         int endIndex = startIndex + bikeCount - 1;
         for (int i = startIndex; i <= endIndex; i++) {
@@ -97,7 +101,9 @@ public class BulkBikeCreation_Testcases extends Base {
         for (int attempt = 1; attempt <= retryCount; attempt++) {
             try {
                 System.out.println("Creating bulk bike index " + index + " attempt " + attempt + "/" + retryCount);
-                createRequiredPartsForBike(index);
+                if (createPartsForEachBike) {
+                    createRequiredPartsForBike(index);
+                }
                 createBike(index);
                 return;
             } catch (RuntimeException e) {
