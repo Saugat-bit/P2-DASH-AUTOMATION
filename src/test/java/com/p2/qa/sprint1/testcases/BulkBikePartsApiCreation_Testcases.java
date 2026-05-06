@@ -98,12 +98,14 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
         Map<String, Object> payload = commonPayload("API-BAT-", index);
         payload.put("bms_vendor_id", vendorId);
         payload.put("battery_type", "fixed");
+        payload.put("soc", 100);
+        payload.put("soh", 100);
         payload.put("cell_chemistry", "NMC");
         payload.put("series_parallel_string", "20S10P");
-        payload.put("design_voltage", 72);
-        payload.put("design_capacity", 50);
-        payload.put("max_charging_current", 20);
-        payload.put("max_discharging_current", 100);
+        payload.put("design_voltage", "72");
+        payload.put("design_capacity", "50");
+        payload.put("max_charging_current", "20");
+        payload.put("max_discharging_current", "100");
         return payload;
     }
 
@@ -132,7 +134,6 @@ public class BulkBikePartsApiCreation_Testcases extends Base {
         payload.put("identifier", uniqueIdentifier(prefix, index));
         payload.put("manufactured_date", MANUFACTURED_DATE);
         payload.put("vendor_id", vendorId);
-        payload.put("purchased_date", PURCHASED_DATE);
         return payload;
     }
 
