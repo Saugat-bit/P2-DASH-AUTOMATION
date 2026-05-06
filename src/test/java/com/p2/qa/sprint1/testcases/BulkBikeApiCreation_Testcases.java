@@ -27,6 +27,16 @@ import utils.TestDataGenerator;
 
 public class BulkBikeApiCreation_Testcases extends Base {
     private static final String API_BASE_PATH = "/api";
+    private static final String[] COMM_BOARD_LIST_PATHS = {
+        "/communication-board?q=&limit=%d&is_assigned=false",
+        "/comm-board?q=&limit=%d&is_assigned=false",
+        "/commboard?q=&limit=%d&is_assigned=false"
+    };
+    private static final String[] KEY_FOB_LIST_PATHS = {
+        "/key-fob?q=&limit=%d&is_assigned=false",
+        "/keyfob?q=&limit=%d&is_assigned=false",
+        "/key-fobs?q=&limit=%d&is_assigned=false"
+    };
 
     private WebDriver driver;
     private Map<String, String> cookies;
@@ -63,11 +73,26 @@ public class BulkBikeApiCreation_Testcases extends Base {
         List<Integer> controllerIds = getIds("/motor-controller?q=&limit=" + requiredParts + "&is_assigned=false");
         List<Integer> vcuIds = getIds("/vcu?q=&limit=" + requiredParts + "&is_assigned=false");
         List<Integer> motorIds = getIds("/motor?q=&limit=" + requiredParts + "&is_assigned=false");
-        List<Integer> commBoardIds = getIds("/comm-board?q=&limit=" + requiredParts + "&is_assigned=false", false);
+        List<Integer> commBoardIds = getIdsFromFirstWorkingPath(COMM_BOARD_LIST_PATHS, requiredParts, true);
+        List<Integer> keyFobIds = getIdsFromFirstWorkingPath(KEY_FOB_LIST_PATHS, requiredParts, true);
+        List<Integer> extendedBatteryIds = getIds(
+            "/battery?q=&limit=" + requiredParts + "&is_assigned=false&battery_type=extended",
+            false
+        );
 
-        int creatableCount = minimumSize(fixedBatteryIds, displayIds, chargerIds, controllerIds, vcuIds, motorIds);
+        int creatableCount = minimumSize(
+            fixedBatteryIds,
+            displayIds,
+            chargerIds,
+            controllerIds,
+            vcuIds,
+            motorIds,
+            commBoardIds,
+            keyFobIds
+        );
         Assert.assertTrue(creatableCount >= bikeCount,
-            "Not enough unassigned parts for " + bikeCount + " bikes. Available complete sets: " + creatableCount);
+            "Not enough unassigned full part sets for " + bikeCount
+                + " bikes. Available complete sets with comm-board and keyfob: " + creatableCount);
 
         Map<String, Object> model = getFirstMap("/bike-model?selectColumns=model_name,id,colors");
         int modelId = toInt(model.get("id"));
@@ -87,14 +112,15 @@ public class BulkBikeApiCreation_Testcases extends Base {
             payload.put("vcu_id", vcuIds.get(offset));
             payload.put("motor_id", motorIds.get(offset));
             payload.put("display_id", displayIds.get(offset));
+            payload.put("comm_board_id", commBoardIds.get(offset));
+            payload.put("keyfob_id", keyFobIds.get(offset));
+            payload.put("license_plate", generateLicensePlate(bikeIndex));
 
-            if (offset < commBoardIds.size()) {
-                payload.put("comm_board_id", commBoardIds.get(offset));
+            if (offset < extendedBatteryIds.size()) {
+                payload.put("extended_battery_id", extendedBatteryIds.get(offset));
             }
 
-            Response response = apiRequest()
-                .body(payload)
-                .post(API_BASE_PATH + "/bikes");
+            Response response = createBike(payload);
 
             Assert.assertTrue(response.statusCode() == 200 || response.statusCode() == 201,
                 "Bike API create failed at index " + bikeIndex + ": " + response.asString());
@@ -103,6 +129,36 @@ public class BulkBikeApiCreation_Testcases extends Base {
                 System.out.println("API bulk bike progress: " + (offset + 1) + "/" + bikeCount);
             }
         }
+    }
+
+    private Response createBike(Map<String, Object> payload) {
+        Response response = postBike(payload);
+        if (response.statusCode() == 200 || response.statusCode() == 201) {
+            return response;
+        }
+
+        String body = response.asString();
+        if (body.contains("property keyfob_id should not exist") || body.contains("key_fob_id")) {
+            Map<String, Object> retryPayload = new LinkedHashMap<>(payload);
+            Object keyFobId = retryPayload.remove("keyfob_id");
+            retryPayload.put("key_fob_id", keyFobId);
+            response = postBike(retryPayload);
+        }
+
+        if (response.statusCode() == 400
+            && response.asString().contains("property extended_battery_id should not exist")) {
+            Map<String, Object> retryPayload = new LinkedHashMap<>(payload);
+            retryPayload.remove("extended_battery_id");
+            response = postBike(retryPayload);
+        }
+
+        return response;
+    }
+
+    private Response postBike(Map<String, Object> payload) {
+        return apiRequest()
+            .body(payload)
+            .post(API_BASE_PATH + "/bikes");
     }
 
     private io.restassured.specification.RequestSpecification apiRequest() {
@@ -128,6 +184,21 @@ public class BulkBikeApiCreation_Testcases extends Base {
         List<Integer> ids = new ArrayList<>();
         collectLikelyEntityIds(json, ids);
         return ids;
+    }
+
+    private List<Integer> getIdsFromFirstWorkingPath(String[] pathTemplates, int limit, boolean required) {
+        for (String template : pathTemplates) {
+            String path = String.format(template, limit);
+            List<Integer> ids = getIds(path, false);
+            if (!ids.isEmpty()) {
+                return ids;
+            }
+        }
+
+        if (required) {
+            Assert.fail("Failed to fetch required IDs from any path: " + String.join(", ", pathTemplates));
+        }
+        return new ArrayList<>();
     }
 
     @SuppressWarnings("unchecked")
@@ -212,6 +283,10 @@ public class BulkBikeApiCreation_Testcases extends Base {
         String seed = Long.toHexString(System.currentTimeMillis()).toUpperCase()
             + Integer.toHexString(index).toUpperCase();
         return seed.substring(seed.length() - 8);
+    }
+
+    private String generateLicensePlate(int index) {
+        return "P2QA" + String.format("%04d", index);
     }
 
     private int toInt(Object value) {
