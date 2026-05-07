@@ -28,6 +28,9 @@ public class StaffmoduleObjects {
     private WebDriverWait wait;
     private static String password = ConfigReader.get("strongpassword");
     private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
+    private static final boolean REVIEW_SCREENSHOTS_ENABLED = Boolean.parseBoolean(
+        System.getProperty("ui.flow.review.screenshots", "false")
+    );
     private static final boolean REVIEW_HTML_ENABLED = Boolean.parseBoolean(
         System.getProperty("ui.flow.review.html", "false")
     );
@@ -248,6 +251,10 @@ public class StaffmoduleObjects {
     }
 
     private void reviewBeforeAction(String name) {
+        if (!REVIEW_SCREENSHOTS_ENABLED && !REVIEW_HTML_ENABLED) {
+            return;
+        }
+
         try {
             File dir = new File("screenshots/flow-review");
             if (!dir.exists()) {

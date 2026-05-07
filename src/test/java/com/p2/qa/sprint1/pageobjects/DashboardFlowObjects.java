@@ -26,6 +26,9 @@ public class DashboardFlowObjects {
     private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
     private static final long OPTIONAL_WAIT_MS = Long.getLong("ui.flow.optional.wait.ms", 250L);
     private static final long SETTLE_PAUSE_MS = Long.getLong("ui.flow.settle.pause.ms", 250L);
+    private static final boolean REVIEW_SCREENSHOTS_ENABLED = Boolean.parseBoolean(
+        System.getProperty("ui.flow.review.screenshots", "false")
+    );
     private static final boolean REVIEW_HTML_ENABLED = Boolean.parseBoolean(
         System.getProperty("ui.flow.review.html", "false")
     );
@@ -363,7 +366,7 @@ public class DashboardFlowObjects {
             id = firstNumericTextNear("Bike ID", "ID", "VIN");
         }
         if (id == null || id.trim().isEmpty()) {
-            reviewBeforeAction("bike-list-before-id-lookup-failed");
+            captureFailureArtifact("bike-list-before-id-lookup-failed");
             flowBikeId = "1";
             return flowBikeId;
         }
@@ -395,7 +398,7 @@ public class DashboardFlowObjects {
         if (customer.id != null && !customer.id.trim().isEmpty()) {
             return;
         }
-        reviewBeforeAction(stepName + "-missing-customer-id");
+        captureFailureArtifact(stepName + "-missing-customer-id");
         throw new IllegalStateException("Could not capture customer ID for " + customer.email);
     }
 
@@ -722,6 +725,17 @@ public class DashboardFlowObjects {
     }
 
     public void reviewBeforeAction(String name) {
+        if (!REVIEW_SCREENSHOTS_ENABLED && !REVIEW_HTML_ENABLED) {
+            return;
+        }
+        captureArtifact(name, REVIEW_HTML_ENABLED);
+    }
+
+    private void captureFailureArtifact(String name) {
+        captureArtifact(name, true);
+    }
+
+    private void captureArtifact(String name, boolean includeHtml) {
         try {
             File dir = new File("screenshots/flow-review");
             if (!dir.exists()) {
@@ -732,7 +746,7 @@ public class DashboardFlowObjects {
             long timestamp = System.currentTimeMillis();
             File image = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
             FileUtils.copyFile(image, new File(dir, timestamp + "_" + safeName + ".png"));
-            if (REVIEW_HTML_ENABLED) {
+            if (includeHtml) {
                 FileUtils.writeStringToFile(
                     new File(dir, timestamp + "_" + safeName + ".html"),
                     driver.getPageSource(),
@@ -743,10 +757,10 @@ public class DashboardFlowObjects {
                 Thread.sleep(REVIEW_PAUSE_MS);
             }
         } catch (IOException e) {
-            throw new RuntimeException("Could not save review screenshot for " + name, e);
+            throw new RuntimeException("Could not save flow artifact for " + name, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("Interrupted during review pause for " + name, e);
+            throw new RuntimeException("Interrupted during artifact pause for " + name, e);
         }
     }
 
