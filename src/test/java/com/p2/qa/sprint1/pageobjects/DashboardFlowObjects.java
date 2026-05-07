@@ -65,11 +65,6 @@ public class DashboardFlowObjects {
             return id;
         }
 
-        id = firstNumericTextNear("Customer ID", "Customer Id", "ID");
-        if (hasText(id)) {
-            return id;
-        }
-
         openCustomerList();
         id = findCurrentOrFirstTableId(customer.email);
         if (hasText(id)) {
@@ -77,6 +72,11 @@ public class DashboardFlowObjects {
         }
 
         id = findNumericTableIdInRowContaining(customer.email);
+        if (hasText(id)) {
+            return id;
+        }
+
+        id = firstNumericTextNear("Customer ID", "Customer Id");
         if (hasText(id)) {
             return id;
         }
@@ -285,8 +285,17 @@ public class DashboardFlowObjects {
             }
         }
 
-        String id = firstTableCellText(1);
-        return id == null ? "" : id.trim();
+        String id = findNumericTableIdInRowContaining(searchValue);
+        if (hasText(id)) {
+            return id;
+        }
+
+        if (searchValue == null || searchValue.trim().isEmpty()) {
+            id = firstTableCellText(1);
+            return id == null ? "" : id.trim();
+        }
+
+        return "";
     }
 
     private void openCustomerList() {
