@@ -309,6 +309,12 @@ public class DashboardFlowObjects {
                 waitForPageToSettle();
             }
         }
+        clickIfPresent(
+            By.xpath("//*[self::button or self::a or @role='tab' or self::div or self::span]"
+                + "[normalize-space()='Customer Lists' or normalize-space()='Customer List']"),
+            5
+        );
+        waitForPageToSettle();
     }
 
     private String customerIdFromUrl() {
