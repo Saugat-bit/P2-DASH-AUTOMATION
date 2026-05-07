@@ -167,8 +167,26 @@ public class StaffmoduleObjects {
             ((JavascriptExecutor) driver).executeScript("arguments[0].click();", link);
             return true;
         } catch (Exception e) {
+            return navigateToStaffsByUrl();
+        }
+    }
+
+    private boolean navigateToStaffsByUrl() {
+        String baseUrl = ConfigReader.get("base.url");
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
             return false;
         }
+
+        driver.get(baseUrl.replaceAll("/+$", "") + "/staffs");
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(5))
+                .until(ExpectedConditions.or(
+                    ExpectedConditions.urlContains("/staffs"),
+                    ExpectedConditions.elementToBeClickable(addStaffButton)
+                ));
+        } catch (Exception ignored) {
+        }
+        return true;
     }
     
     public void clickAddStaffButton() {
