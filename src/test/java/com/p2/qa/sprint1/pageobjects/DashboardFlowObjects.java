@@ -39,6 +39,7 @@ public class DashboardFlowObjects {
         clickFirstButton("Continue", "Next");
         fillIfPresent(customer.firstName, "firstName", "first_name", "First Name", "First");
         fillIfPresent(customer.lastName, "lastName", "last_name", "Last Name", "Last");
+        fillIfPresent("Password@123", "password", "Password");
         fillIfPresent(customer.phone, "phone", "phone_number", "Phone Number", "Phone");
         selectFirstOptionForLabels("Gender");
         selectDateIfPresent("Date of Birth", "Birth");
