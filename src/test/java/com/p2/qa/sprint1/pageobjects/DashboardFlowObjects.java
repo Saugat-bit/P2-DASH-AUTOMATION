@@ -26,11 +26,15 @@ public class DashboardFlowObjects {
     private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
     private static final long OPTIONAL_WAIT_MS = Long.getLong("ui.flow.optional.wait.ms", 250L);
     private static final long SETTLE_PAUSE_MS = Long.getLong("ui.flow.settle.pause.ms", 250L);
+    private static final boolean REVIEW_HTML_ENABLED = Boolean.parseBoolean(
+        System.getProperty("ui.flow.review.html", "false")
+    );
     private static final boolean DIRECT_NAVIGATION = Boolean.parseBoolean(
         System.getProperty("ui.flow.direct.navigation", "true")
     );
     private final WebDriver driver;
     private final WebDriverWait wait;
+    private String flowBikeId;
 
     public DashboardFlowObjects(WebDriver driver) {
         this.driver = driver;
@@ -93,7 +97,7 @@ public class DashboardFlowObjects {
     }
 
     public void assignFirstAvailableBikeToCustomer(CustomerData customer) {
-        String bikeId = getFirstBikeId();
+        String bikeId = getFlowBikeId();
         requireCustomerId(customer, "assign-ownership");
         navigateTo("Bikes", "ownership", "ownerships");
         clickFirstButton("Add Ownership", "Assign Bike", "Create Ownership", "Add");
@@ -130,7 +134,7 @@ public class DashboardFlowObjects {
     }
 
     public void transferOwnership(CustomerData fromCustomer, CustomerData toCustomer) {
-        String bikeId = getFirstBikeId();
+        String bikeId = getFlowBikeId();
         requireCustomerId(toCustomer, "transfer-ownership");
         navigateTo("Bikes", "ownership", "ownerships");
         clickFirstButton("Transfer Ownership", "Transfer", "Change Owner");
@@ -339,22 +343,52 @@ public class DashboardFlowObjects {
         }
     }
 
-    private String getFirstBikeId() {
-        String configuredBikeId = ConfigReader.get("ui.flow.bike.id");
+    private String getFlowBikeId() {
+        if (hasText(flowBikeId)) {
+            return flowBikeId;
+        }
+
+        String configuredBikeId = System.getProperty("ui.flow.bike.id");
+        if (configuredBikeId == null || configuredBikeId.trim().isEmpty()) {
+            configuredBikeId = ConfigReader.get("ui.flow.bike.id");
+        }
         if (configuredBikeId != null && !configuredBikeId.trim().isEmpty()) {
-            return configuredBikeId.trim();
+            flowBikeId = configuredBikeId.trim();
+            return flowBikeId;
         }
 
         navigateTo("Bikes", "bikes", "bike");
-        String id = firstTableCellText(1);
+        String id = visibleBikeIdFromTable();
         if (id == null || id.trim().isEmpty()) {
             id = firstNumericTextNear("Bike ID", "ID", "VIN");
         }
         if (id == null || id.trim().isEmpty()) {
             reviewBeforeAction("bike-list-before-id-lookup-failed");
-            return "1";
+            flowBikeId = "1";
+            return flowBikeId;
         }
-        return id.trim();
+        flowBikeId = id.trim();
+        return flowBikeId;
+    }
+
+    private String visibleBikeIdFromTable() {
+        java.util.List<WebElement> rows = driver.findElements(By.xpath("//table/tbody/tr"));
+        if (rows.isEmpty()) {
+            return "";
+        }
+
+        int start = Math.floorMod((int) (System.currentTimeMillis() / 1000), rows.size());
+        for (int offset = 0; offset < rows.size(); offset++) {
+            WebElement row = rows.get((start + offset) % rows.size());
+            java.util.List<WebElement> cells = row.findElements(By.xpath("./td"));
+            for (WebElement cell : cells) {
+                String text = cell.getText();
+                if (text != null && text.trim().matches("[0-9]+")) {
+                    return text.trim();
+                }
+            }
+        }
+        return "";
     }
 
     private void requireCustomerId(CustomerData customer, String stepName) {
@@ -630,15 +664,19 @@ public class DashboardFlowObjects {
             }
             clickElement(button);
             By date = By.xpath("(//button[normalize-space()='4' and not(@disabled)])[last()]");
-            if (clickIfPresent(date, 3)) {
+            if (clickIfPresent(date, Duration.ofMillis(500))) {
                 return;
             }
         }
     }
 
     private boolean clickIfPresent(By locator, int timeoutSeconds) {
+        return clickIfPresent(locator, Duration.ofSeconds(timeoutSeconds));
+    }
+
+    private boolean clickIfPresent(By locator, Duration timeout) {
         try {
-            WebElement element = new WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds))
+            WebElement element = new WebDriverWait(driver, timeout)
                 .until(ExpectedConditions.elementToBeClickable(locator));
             clickElement(element);
             return true;
@@ -694,11 +732,13 @@ public class DashboardFlowObjects {
             long timestamp = System.currentTimeMillis();
             File image = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
             FileUtils.copyFile(image, new File(dir, timestamp + "_" + safeName + ".png"));
-            FileUtils.writeStringToFile(
-                new File(dir, timestamp + "_" + safeName + ".html"),
-                driver.getPageSource(),
-                "UTF-8"
-            );
+            if (REVIEW_HTML_ENABLED) {
+                FileUtils.writeStringToFile(
+                    new File(dir, timestamp + "_" + safeName + ".html"),
+                    driver.getPageSource(),
+                    "UTF-8"
+                );
+            }
             if (REVIEW_PAUSE_MS > 0) {
                 Thread.sleep(REVIEW_PAUSE_MS);
             }

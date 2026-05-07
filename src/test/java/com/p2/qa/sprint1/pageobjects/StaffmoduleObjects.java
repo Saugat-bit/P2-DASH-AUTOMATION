@@ -28,6 +28,9 @@ public class StaffmoduleObjects {
     private WebDriverWait wait;
     private static String password = ConfigReader.get("strongpassword");
     private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
+    private static final boolean REVIEW_HTML_ENABLED = Boolean.parseBoolean(
+        System.getProperty("ui.flow.review.html", "false")
+    );
     
     // Constructor
     public StaffmoduleObjects(WebDriver driver) {
@@ -254,11 +257,13 @@ public class StaffmoduleObjects {
             long timestamp = System.currentTimeMillis();
             File image = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
             FileUtils.copyFile(image, new File(dir, timestamp + "_" + name + ".png"));
-            FileUtils.writeStringToFile(
-                new File(dir, timestamp + "_" + name + ".html"),
-                driver.getPageSource(),
-                "UTF-8"
-            );
+            if (REVIEW_HTML_ENABLED) {
+                FileUtils.writeStringToFile(
+                    new File(dir, timestamp + "_" + name + ".html"),
+                    driver.getPageSource(),
+                    "UTF-8"
+                );
+            }
             if (REVIEW_PAUSE_MS > 0) {
                 Thread.sleep(REVIEW_PAUSE_MS);
             }
