@@ -95,7 +95,7 @@ public class DashboardFlowObjects {
             return id;
         }
 
-        reviewBeforeAction("customer-id-lookup-failed");
+        captureFailureArtifact("customer-id-lookup-failed");
         return "";
     }
 
@@ -118,7 +118,7 @@ public class DashboardFlowObjects {
     public void makePaymentForCustomer(CustomerData customer) {
         navigateTo("Payments", "payments", "payment");
         if (!clickFirstButtonFast("Create New Payment", "Create Payment")) {
-            reviewBeforeAction("payment-create-button-not-found");
+            captureFailureArtifact("payment-create-button-not-found");
             throw new IllegalStateException("Could not open payment creation form");
         }
         waitForPaymentForm();
@@ -277,7 +277,7 @@ public class DashboardFlowObjects {
             new WebDriverWait(driver, Duration.ofSeconds(4))
                 .until(ExpectedConditions.visibilityOfElementLocated(formLocator));
         } catch (Exception e) {
-            reviewBeforeAction("payment-form-not-visible");
+            captureFailureArtifact("payment-form-not-visible");
             throw new IllegalStateException("Payment form did not open", e);
         }
     }
