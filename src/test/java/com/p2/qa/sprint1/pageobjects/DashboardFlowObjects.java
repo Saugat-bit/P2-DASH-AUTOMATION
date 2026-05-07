@@ -26,6 +26,9 @@ public class DashboardFlowObjects {
     private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
     private static final long OPTIONAL_WAIT_MS = Long.getLong("ui.flow.optional.wait.ms", 250L);
     private static final long SETTLE_PAUSE_MS = Long.getLong("ui.flow.settle.pause.ms", 250L);
+    private static final boolean DIRECT_NAVIGATION = Boolean.parseBoolean(
+        System.getProperty("ui.flow.direct.navigation", "true")
+    );
     private final WebDriver driver;
     private final WebDriverWait wait;
 
@@ -146,6 +149,10 @@ public class DashboardFlowObjects {
     }
 
     public void navigateTo(String menuText, String... hrefOrTextHints) {
+        if (DIRECT_NAVIGATION && navigateDirectly(menuText, hrefOrTextHints)) {
+            return;
+        }
+
         for (String hint : hrefOrTextHints) {
             if (clickIfPresent(By.xpath("//a[contains(translate(@href,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
                 + hint.toLowerCase() + "')]"), 2)) {
@@ -164,6 +171,46 @@ public class DashboardFlowObjects {
                 return;
             }
         }
+    }
+
+    private boolean navigateDirectly(String menuText, String... hrefOrTextHints) {
+        String route = directRouteFor(menuText, hrefOrTextHints);
+        if (route == null) {
+            return false;
+        }
+
+        String baseUrl = ConfigReader.get("base.url");
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            return false;
+        }
+
+        String normalizedBase = baseUrl.replaceAll("/+$", "");
+        String targetUrl = normalizedBase + route;
+        if (!driver.getCurrentUrl().startsWith(targetUrl)) {
+            driver.get(targetUrl);
+        }
+        waitForPageToSettle();
+        return true;
+    }
+
+    private String directRouteFor(String menuText, String... hrefOrTextHints) {
+        String combined = (menuText + " " + String.join(" ", hrefOrTextHints)).toLowerCase();
+        if (combined.contains("ownership")) {
+            return "/ownership";
+        }
+        if (combined.contains("payment")) {
+            return "/payments";
+        }
+        if (combined.contains("customer")) {
+            return "/customer";
+        }
+        if (combined.contains("staff")) {
+            return "/staffs";
+        }
+        if (combined.contains("bike")) {
+            return "/bike";
+        }
+        return null;
     }
 
     private boolean clickFirstButton(String... texts) {
@@ -576,9 +623,13 @@ public class DashboardFlowObjects {
     private void clickElement(WebElement element) {
         scrollTo(element);
         try {
-            new Actions(driver).moveToElement(element).click().perform();
+            element.click();
         } catch (Exception e) {
-            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
+            try {
+                ((JavascriptExecutor) driver).executeScript("arguments[0].click();", element);
+            } catch (Exception ignored) {
+                new Actions(driver).moveToElement(element).click().perform();
+            }
         }
     }
 
