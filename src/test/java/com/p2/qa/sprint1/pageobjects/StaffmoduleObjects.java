@@ -26,6 +26,7 @@ public class StaffmoduleObjects {
     private WebDriver driver;
     private WebDriverWait wait;
     private static String password = ConfigReader.get("strongpassword");
+    private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
     
     // Constructor
     public StaffmoduleObjects(WebDriver driver) {
@@ -211,7 +212,9 @@ public class StaffmoduleObjects {
                 driver.getPageSource(),
                 "UTF-8"
             );
-            Thread.sleep(1200);
+            if (REVIEW_PAUSE_MS > 0) {
+                Thread.sleep(REVIEW_PAUSE_MS);
+            }
         } catch (IOException e) {
             throw new RuntimeException("Could not save review screenshot for " + name, e);
         } catch (InterruptedException e) {

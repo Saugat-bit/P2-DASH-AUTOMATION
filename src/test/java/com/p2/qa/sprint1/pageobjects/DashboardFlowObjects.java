@@ -23,6 +23,7 @@ import utils.ConfigReader;
 import utils.TestDataGenerator;
 
 public class DashboardFlowObjects {
+    private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
     private final WebDriver driver;
     private final WebDriverWait wait;
 
@@ -544,7 +545,9 @@ public class DashboardFlowObjects {
                 driver.getPageSource(),
                 "UTF-8"
             );
-            Thread.sleep(1200);
+            if (REVIEW_PAUSE_MS > 0) {
+                Thread.sleep(REVIEW_PAUSE_MS);
+            }
         } catch (IOException e) {
             throw new RuntimeException("Could not save review screenshot for " + name, e);
         } catch (InterruptedException e) {
