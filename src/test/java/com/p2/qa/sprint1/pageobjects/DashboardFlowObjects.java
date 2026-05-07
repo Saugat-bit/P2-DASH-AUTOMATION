@@ -24,6 +24,8 @@ import utils.TestDataGenerator;
 
 public class DashboardFlowObjects {
     private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
+    private static final long OPTIONAL_WAIT_MS = Long.getLong("ui.flow.optional.wait.ms", 250L);
+    private static final long SETTLE_PAUSE_MS = Long.getLong("ui.flow.settle.pause.ms", 250L);
     private final WebDriver driver;
     private final WebDriverWait wait;
 
@@ -105,18 +107,18 @@ public class DashboardFlowObjects {
 
     public void makePaymentForCustomer(CustomerData customer) {
         navigateTo("Payments", "payments", "payment");
-        if (!clickFirstButton("Create New Payment", "Add Payment", "Make Payment", "Create Payment", "Add")) {
+        if (!clickFirstButtonFast("Create New Payment", "Create Payment")) {
             reviewBeforeAction("payment-create-button-not-found");
             throw new IllegalStateException("Could not open payment creation form");
         }
         waitForPaymentForm();
-        fillIfPresent(customer.id, "customer_id", "Customer ID", "Customer");
-        selectFirstOptionForLabels("Customer", "Owner");
-        selectFirstOptionForLabels("Bike", "Ownership", "VIN");
-        fillIfPresent("25000", "amount", "Amount", "Payment Amount");
-        fillIfPresent("FLOW-" + System.currentTimeMillis(), "reference", "Reference", "Transaction ID");
-        selectFirstOptionForLabels("Payment Method", "Method", "Payment Type");
-        fillIfPresent("Automated payment from UI end-to-end flow", "remarks", "Remarks", "Note");
+        fillIfPresentFast(customer.id, "customer_id", "Customer ID");
+        selectFirstOptionForLabelsFast("Customer");
+        selectFirstOptionForLabelsFast("Bike");
+        fillIfPresentFast("25000", "amount", "Amount", "Payment Amount");
+        fillIfPresentFast("FLOW-" + System.currentTimeMillis(), "reference", "Reference", "Transaction ID");
+        selectFirstOptionForLabelsFast("Payment Method");
+        fillIfPresentFast("Automated payment from UI end-to-end flow", "remarks", "Remarks", "Note");
         reviewBeforeAction("payment-form-before-submit");
         clickFirstButton("Submit", "Pay", "Create", "Save");
         reviewBeforeAction("payment-confirm-before-ok");
@@ -175,16 +177,40 @@ public class DashboardFlowObjects {
         return false;
     }
 
+    private boolean clickFirstButtonFast(String... texts) {
+        for (String text : texts) {
+            By button = By.xpath("//button[contains(normalize-space(.), '" + text + "')]"
+                + " | //a[contains(normalize-space(.), '" + text + "')]");
+            if (clickIfPresent(button, 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void waitForPaymentForm() {
-        By formLocator = By.xpath("//*[contains(normalize-space(.), 'Create Payment')"
-            + " or contains(normalize-space(.), 'Add Payment')"
-            + " or contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'amount')]");
+        By formLocator = By.xpath("//label[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'amount')]"
+            + " | //input[contains(translate(@name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'amount')]"
+            + " | //label[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'customer')]/following::button[1]");
         try {
-            new WebDriverWait(driver, Duration.ofSeconds(10))
+            new WebDriverWait(driver, Duration.ofSeconds(4))
                 .until(ExpectedConditions.visibilityOfElementLocated(formLocator));
         } catch (Exception e) {
             reviewBeforeAction("payment-form-not-visible");
             throw new IllegalStateException("Payment form did not open", e);
+        }
+    }
+
+    private void fillIfPresentFast(String value, String... hints) {
+        if (value == null || value.trim().isEmpty()) {
+            return;
+        }
+        for (String hint : hints) {
+            WebElement input = findInput(hint, Duration.ofMillis(OPTIONAL_WAIT_MS));
+            if (input != null) {
+                fillInput(input, value);
+                return;
+            }
         }
     }
 
@@ -213,7 +239,7 @@ public class DashboardFlowObjects {
             return;
         }
         for (String hint : hints) {
-            WebElement input = findInput(hint, 1);
+            WebElement input = findInput(hint, Duration.ofMillis(OPTIONAL_WAIT_MS));
             if (input != null) {
                 fillInput(input, value);
                 return;
@@ -394,6 +420,10 @@ public class DashboardFlowObjects {
     }
 
     private WebElement findInput(String hint, int timeoutSeconds) {
+        return findInput(hint, Duration.ofSeconds(timeoutSeconds));
+    }
+
+    private WebElement findInput(String hint, Duration timeout) {
         String lower = hint.toLowerCase();
         By locator = By.xpath("//input[contains(translate(@name,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '" + lower + "')"
             + " or contains(translate(@placeholder,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '" + lower + "')]"
@@ -404,7 +434,7 @@ public class DashboardFlowObjects {
             + " | //label[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '" + lower
             + "')]/following::textarea[1]");
         try {
-            return new WebDriverWait(driver, Duration.ofSeconds(timeoutSeconds))
+            return new WebDriverWait(driver, timeout)
                 .until(driver -> firstDisplayed(driver.findElements(locator)));
         } catch (Exception e) {
             return null;
@@ -447,6 +477,24 @@ public class DashboardFlowObjects {
         }
     }
 
+    private void selectFirstOptionForLabelsFast(String... labels) {
+        for (String label : labels) {
+            WebElement select = findNativeSelect(label);
+            if (select != null) {
+                Select nativeSelect = new Select(select);
+                if (nativeSelect.getOptions().size() > 1) {
+                    nativeSelect.selectByIndex(1);
+                    return;
+                }
+            }
+
+            WebElement button = findSelectButton(label, Duration.ofMillis(OPTIONAL_WAIT_MS));
+            if (button != null && selectRadixOption(button, Duration.ofSeconds(1))) {
+                return;
+            }
+        }
+    }
+
     private WebElement findNativeSelect(String label) {
         try {
             String lower = label.toLowerCase();
@@ -460,11 +508,15 @@ public class DashboardFlowObjects {
     }
 
     private WebElement findSelectButton(String label) {
+        return findSelectButton(label, Duration.ofMillis(OPTIONAL_WAIT_MS));
+    }
+
+    private WebElement findSelectButton(String label, Duration timeout) {
         try {
             String lower = label.toLowerCase();
             By locator = By.xpath("//label[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
                 + lower + "')]/following::button[1]");
-            return new WebDriverWait(driver, Duration.ofSeconds(2))
+            return new WebDriverWait(driver, timeout)
                 .until(driver -> firstDisplayed(driver.findElements(locator)));
         } catch (Exception e) {
             return null;
@@ -472,10 +524,14 @@ public class DashboardFlowObjects {
     }
 
     private boolean selectRadixOption(WebElement button) {
+        return selectRadixOption(button, Duration.ofSeconds(2));
+    }
+
+    private boolean selectRadixOption(WebElement button, Duration timeout) {
         try {
             scrollTo(button);
             clickElement(button);
-            WebElement option = new WebDriverWait(driver, Duration.ofSeconds(5))
+            WebElement option = new WebDriverWait(driver, timeout)
                 .until(driver -> firstDisplayed(driver.findElements(
                     By.xpath("//*[@role='listbox' and @data-state='open']//*[@role='option' and not(@aria-disabled='true')]")
                 )));
@@ -541,7 +597,9 @@ public class DashboardFlowObjects {
 
     private void waitForPageToSettle() {
         try {
-            Thread.sleep(700);
+            if (SETTLE_PAUSE_MS > 0) {
+                Thread.sleep(SETTLE_PAUSE_MS);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
