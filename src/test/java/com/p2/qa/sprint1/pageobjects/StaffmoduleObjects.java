@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
@@ -125,6 +126,10 @@ public class StaffmoduleObjects {
     private By administrationLink = By.xpath("//span[text()='Administration']");
 
     public void navigateToStaffsPage() {
+        if (fastNavigateToStaffsPage()) {
+            return;
+        }
+
         try {
             boolean isVisible = false;
             try {
@@ -140,6 +145,30 @@ public class StaffmoduleObjects {
         }
         wait.until(ExpectedConditions.elementToBeClickable(staffsLink)).click();
       
+    }
+
+    private boolean fastNavigateToStaffsPage() {
+        try {
+            String currentUrl = driver.getCurrentUrl();
+            if (currentUrl != null && currentUrl.matches("https?://[^/]+/staffs([/?#].*)?$")) {
+                return true;
+            }
+
+            WebElement link = new WebDriverWait(driver, Duration.ofMillis(300))
+                .until(driver -> {
+                    List<WebElement> links = driver.findElements(By.xpath("//a[@href='/staffs']"));
+                    for (WebElement candidate : links) {
+                        if (candidate.isDisplayed() && candidate.isEnabled()) {
+                            return candidate;
+                        }
+                    }
+                    return null;
+                });
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", link);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
     
     public void clickAddStaffButton() {

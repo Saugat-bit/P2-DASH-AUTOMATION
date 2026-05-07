@@ -179,18 +179,45 @@ public class DashboardFlowObjects {
             return false;
         }
 
+        if (currentPathStartsWith(route)) {
+            waitForPageToSettle();
+            return true;
+        }
+
+        if (clickRouteLink(route)) {
+            waitForPageToSettle();
+            return true;
+        }
+
         String baseUrl = ConfigReader.get("base.url");
         if (baseUrl == null || baseUrl.trim().isEmpty()) {
             return false;
         }
 
         String normalizedBase = baseUrl.replaceAll("/+$", "");
-        String targetUrl = normalizedBase + route;
-        if (!driver.getCurrentUrl().startsWith(targetUrl)) {
-            driver.get(targetUrl);
-        }
+        driver.get(normalizedBase + route);
         waitForPageToSettle();
         return true;
+    }
+
+    private boolean currentPathStartsWith(String route) {
+        String currentUrl = driver.getCurrentUrl();
+        if (currentUrl == null) {
+            return false;
+        }
+        return currentUrl.matches("https?://[^/]+" + Pattern.quote(route) + "([/?#].*)?$");
+    }
+
+    private boolean clickRouteLink(String route) {
+        By exactRoute = By.xpath("//a[@href='" + route + "' or starts-with(@href, '" + route + "?')]");
+        try {
+            WebElement link = new WebDriverWait(driver, Duration.ofMillis(300))
+                .until(driver -> firstDisplayed(driver.findElements(exactRoute)));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", link);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     private String directRouteFor(String menuText, String... hrefOrTextHints) {
