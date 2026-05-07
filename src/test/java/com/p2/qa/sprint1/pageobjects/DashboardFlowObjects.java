@@ -105,7 +105,11 @@ public class DashboardFlowObjects {
 
     public void makePaymentForCustomer(CustomerData customer) {
         navigateTo("Payments", "payments", "payment");
-        clickFirstButton("Add Payment", "Make Payment", "Create Payment", "Add");
+        if (!clickFirstButton("Create New Payment", "Add Payment", "Make Payment", "Create Payment", "Add")) {
+            reviewBeforeAction("payment-create-button-not-found");
+            throw new IllegalStateException("Could not open payment creation form");
+        }
+        waitForPaymentForm();
         fillIfPresent(customer.id, "customer_id", "Customer ID", "Customer");
         selectFirstOptionForLabels("Customer", "Owner");
         selectFirstOptionForLabels("Bike", "Ownership", "VIN");
@@ -160,13 +164,27 @@ public class DashboardFlowObjects {
         }
     }
 
-    private void clickFirstButton(String... texts) {
+    private boolean clickFirstButton(String... texts) {
         for (String text : texts) {
             By button = By.xpath("//button[contains(normalize-space(.), '" + text + "')]"
                 + " | //a[contains(normalize-space(.), '" + text + "')]");
             if (clickIfPresent(button, 3)) {
-                return;
+                return true;
             }
+        }
+        return false;
+    }
+
+    private void waitForPaymentForm() {
+        By formLocator = By.xpath("//*[contains(normalize-space(.), 'Create Payment')"
+            + " or contains(normalize-space(.), 'Add Payment')"
+            + " or contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'amount')]");
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(10))
+                .until(ExpectedConditions.visibilityOfElementLocated(formLocator));
+        } catch (Exception e) {
+            reviewBeforeAction("payment-form-not-visible");
+            throw new IllegalStateException("Payment form did not open", e);
         }
     }
 
