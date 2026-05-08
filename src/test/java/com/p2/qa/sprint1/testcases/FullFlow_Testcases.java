@@ -159,6 +159,7 @@ public class FullFlow_Testcases extends Base {
     }
 
     private void verifyCreatedPart(String partType, String identifier) {
+        bikePartsPage.navigateToBikeParts();
         bikePartsPage.selectPartType(partType);
         Assert.assertTrue(
             bikePartsPage.isPartVisible(identifier),

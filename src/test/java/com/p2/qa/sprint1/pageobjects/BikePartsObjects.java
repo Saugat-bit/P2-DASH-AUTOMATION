@@ -212,7 +212,7 @@ public class BikePartsObjects {
         try { Thread.sleep(500); } catch(Exception e){}
         ((org.openqa.selenium.JavascriptExecutor)driver).executeScript("arguments[0].click();", saveBtn);
         confirmAddIfPresent();
-        waitForPartListToLoad();
+        waitForPartListAfterSave();
     }
 
     public void createBatteryPart(String identifier, int vendorIndex) {
@@ -407,6 +407,17 @@ public class BikePartsObjects {
                     ExpectedConditions.presenceOfElementLocated(By.xpath("//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add')]")),
                     ExpectedConditions.presenceOfElementLocated(By.xpath("//table")),
                     ExpectedConditions.presenceOfElementLocated(By.name("identifier"))
+                ));
+        } catch (Exception ignore) {
+        }
+    }
+
+    private void waitForPartListAfterSave() {
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(30))
+                .until(ExpectedConditions.or(
+                    ExpectedConditions.presenceOfElementLocated(By.xpath("//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'add')]")),
+                    ExpectedConditions.presenceOfElementLocated(By.xpath("//table"))
                 ));
         } catch (Exception ignore) {
         }
