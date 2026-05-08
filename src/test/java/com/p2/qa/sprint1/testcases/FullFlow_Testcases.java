@@ -30,6 +30,7 @@ public class FullFlow_Testcases extends Base {
     private String controllerId;
     private String motorId;
     private String keyfobId;
+    private String commboardId;
     private String bikeVin;
 
     @BeforeClass
@@ -47,7 +48,7 @@ public class FullFlow_Testcases extends Base {
     }
 
     @Test(priority = 1)
-    public void testCreateVendor() throws InterruptedException {
+    public void testCreateVendor() {
         String uniqueName = TestDataGenerator.getRandomName();
         
         vendorPage.navigateToVendorPage();
@@ -57,62 +58,71 @@ public class FullFlow_Testcases extends Base {
             "Nepal", 
             "Automated vendor creation"
         );
-        // vendorPage.saveVendor(); // Save is called inside createVendor in VendorPageObject
-        
-        Thread.sleep(3000); // Wait for table refresh
         vendorId = vendorPage.getFirstVendorId();
         Assert.assertNotNull(vendorId, "Vendor ID should not be null");
+        Assert.assertFalse(vendorId.trim().isEmpty(), "Vendor ID should not be empty");
+        Assert.assertEquals(vendorPage.getFirstVendorName(), uniqueName, "Created vendor should be visible in the table");
     }
 
     @Test(priority = 2, dependsOnMethods = {"testCreateVendor"})
-    public void testCreateAllParts() throws InterruptedException {
+    public void testCreateAllParts() {
         bikePartsPage.navigateToBikeParts();
         
         // Use generic vendor index 1 for simplicity since table sorts it to top usually, or custom generic flow
         // To be safe, we'll assume the parts creation uses the latest vendor.
         int latestVendorIndex = 1;
         
-        // Battery
         batteryId = TestDataGenerator.getRandomIdentifier();
         bikePartsPage.selectPartType("battery");
         bikePartsPage.clickAddPart();
-        bikePartsPage.createBasicPart(batteryId, latestVendorIndex);
+        bikePartsPage.createBatteryPart(batteryId, latestVendorIndex);
+        verifyCreatedPart("battery", batteryId);
         
-        // Motor Controller
         controllerId = TestDataGenerator.getRandomIdentifier();
         bikePartsPage.selectPartType("motorcontroller");
         bikePartsPage.clickAddPart();
         bikePartsPage.createBasicPart(controllerId, latestVendorIndex);
+        verifyCreatedPart("motorcontroller", controllerId);
         
-        // VCU
         vcuId = TestDataGenerator.getRandomIdentifier();
         bikePartsPage.selectPartType("vcu");
         bikePartsPage.clickAddPart();
-        bikePartsPage.createBasicPart(vcuId, latestVendorIndex);
+        bikePartsPage.createVCU(vcuId, latestVendorIndex, "1.0.0");
+        verifyCreatedPart("vcu", vcuId);
         
-        // Motors
         motorId = TestDataGenerator.getRandomIdentifier();
         bikePartsPage.selectPartType("motors");
         bikePartsPage.clickAddPart();
         bikePartsPage.createBasicPart(motorId, latestVendorIndex);
+        verifyCreatedPart("motors", motorId);
         
-        // Display
         displayId = TestDataGenerator.getRandomIdentifier();
         bikePartsPage.selectPartType("display");
         bikePartsPage.clickAddPart();
-        bikePartsPage.createBasicPart(displayId, latestVendorIndex);
+        bikePartsPage.createDisplay(displayId, latestVendorIndex, "MCU_1.0", "ARM_1.0", "FEX_1.0");
+        verifyCreatedPart("display", displayId);
         
-        // Charger
         chargerId = TestDataGenerator.getRandomIdentifier();
         bikePartsPage.selectPartType("charger");
         bikePartsPage.clickAddPart();
         bikePartsPage.createBasicPart(chargerId, latestVendorIndex);
+        verifyCreatedPart("charger", chargerId);
         
-        Assert.assertTrue(true, "All parts created successfully");
+        keyfobId = TestDataGenerator.getRandomIdentifier();
+        bikePartsPage.selectPartType("keyfob");
+        bikePartsPage.clickAddPart();
+        bikePartsPage.createKeyFob(keyfobId, latestVendorIndex, "BLE_" + keyfobId);
+        verifyCreatedPart("keyfob", keyfobId);
+
+        commboardId = TestDataGenerator.getRandomIdentifier();
+        bikePartsPage.selectPartType("commboard");
+        bikePartsPage.clickAddPart();
+        bikePartsPage.createCommboard(commboardId, latestVendorIndex);
+        verifyCreatedPart("commboard", commboardId);
     }
 
     @Test(priority = 3, dependsOnMethods = {"testCreateAllParts"})
-    public void testCreateBike() throws InterruptedException {
+    public void testCreateBike() {
         bikePage.navigateToBikes();
         
         String uniqueBikeName = TestDataGenerator.getRandomName();
@@ -120,29 +130,40 @@ public class FullFlow_Testcases extends Base {
         
         bikePage.fillAddBikeForm(uniqueBikeName, bikeVin);
         bikePage.clickSubmit();
-        
-        // Wait for potential toast or table reload
-        Thread.sleep(3000);
-        Assert.assertTrue(true, "Bike creation submitted successfully");
+
+        Assert.assertTrue(
+            bikePage.isBikeCreationSuccessful(bikeVin),
+            "Bike creation did not show the created VIN or a success message"
+        );
     }
 
-    @Test(priority = 4)
-    public void testCreateCustomer() throws InterruptedException {
+    @Test(priority = 4, dependsOnMethods = {"testCreateBike"})
+    public void testCreateCustomer() {
         customerPage.navigateToCustomers();
         customerPage.clickRegisterCustomer();
         
-        String uniqueEmail = TestDataGenerator.getRandomName().replaceAll("\\s", "").toLowerCase() + "@test.com";
+        String uniqueEmail = TestDataGenerator.getSimpleYopmailEmail("customer");
         customerPage.fillEmailStep(uniqueEmail);
         
         String firstName = TestDataGenerator.getRandomName();
         String lastName = TestDataGenerator.getRandomName();
-        String phone = "98" + String.format("%08d", (int)(Math.random() * 100000000));
+        String phone = TestDataGenerator.getValidNepaliPhoneNumber();
         
         customerPage.fillDetailsStep(firstName, lastName, phone);
         customerPage.clickSubmit();
-        
-        Thread.sleep(3000);
-        Assert.assertTrue(true, "Customer registration completed");
+
+        Assert.assertTrue(
+            customerPage.isCustomerCreationSuccessful(uniqueEmail),
+            "Customer registration did not show the created email or a success message"
+        );
+    }
+
+    private void verifyCreatedPart(String partType, String identifier) {
+        bikePartsPage.selectPartType(partType);
+        Assert.assertTrue(
+            bikePartsPage.isPartVisible(identifier),
+            "Created " + partType + " part should be visible with identifier: " + identifier
+        );
     }
 
     @AfterClass
