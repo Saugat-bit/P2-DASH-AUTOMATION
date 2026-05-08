@@ -178,15 +178,15 @@ public class DashboardFlowObjects {
         waitForPageToSettle();
 
         openChargingStationLocation();
-        if (!pageContainsText(locationName)) {
+        if (!listContainsText(locationName)) {
             searchIfPresent(locationName);
         }
-        if (!pageContainsText(locationName)) {
+        if (!listContainsText(locationName)) {
             captureFailureArtifact("charging-station-location-create-not-visible");
             throw new IllegalStateException("Charging station location was not visible after create: " + locationName);
         }
 
-        openFirstRowAction("Edit", "Update");
+        openRowActionForText(locationName, "Edit", "Update");
         fillChargingStationLocationForm(updatedLocationName);
         reviewBeforeAction("charging-station-location-before-update");
         clickFirstButton("Submit", "Update", "Save");
@@ -195,10 +195,10 @@ public class DashboardFlowObjects {
         waitForPageToSettle();
 
         openChargingStationLocation();
-        if (!pageContainsText(updatedLocationName)) {
+        if (!listContainsText(updatedLocationName)) {
             searchIfPresent(updatedLocationName);
         }
-        if (!pageContainsText(updatedLocationName)) {
+        if (!listContainsText(updatedLocationName)) {
             captureFailureArtifact("charging-station-location-update-not-visible");
             throw new IllegalStateException("Charging station location was not visible after update: " + updatedLocationName);
         }
@@ -218,15 +218,11 @@ public class DashboardFlowObjects {
     }
 
     private void fillChargingStationLocationForm(String locationName) {
-        fillIfPresentFast(locationName, "name", "location_name", "station_location", "Location Name", "Name");
-        fillIfPresentFast("Kathmandu", "city", "City");
-        fillIfPresentFast("Bagmati", "state", "province", "State", "Province");
-        fillIfPresentFast("Nepal", "country", "Country");
-        fillIfPresentFast("Lazimpat, Kathmandu", "address", "Address", "Location");
-        fillIfPresentFast("27.7172", "latitude", "lat", "Latitude");
-        fillIfPresentFast("85.3240", "longitude", "lng", "long", "Longitude");
-        fillIfPresentFast("Automated charging station location flow", "remarks", "description", "Remarks", "Description");
-        selectFirstOptionForLabelsFast("Charging Station", "Station", "Locale", "Status");
+        fillInputInLabeledField(locationName, "Name");
+        selectInLabeledField("Province");
+        fillInputInLabeledField(TestDataGenerator.getValidNepaliPhoneNumber(), "Phone Number");
+        selectInLabeledField("Host Business Type");
+        fillInputInLabeledField("Lazimpat, Kathmandu", "Address");
     }
 
     public void navigateTo(String menuText, String... hrefOrTextHints) {
@@ -363,6 +359,23 @@ public class DashboardFlowObjects {
         }
     }
 
+    private boolean listContainsText(String value) {
+        try {
+            String lower = value.toLowerCase();
+            By row = By.xpath("//table//tbody//tr[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
+                + lower + "')]");
+            return new WebDriverWait(driver, Duration.ofSeconds(5))
+                .until(driver -> firstDisplayed(driver.findElements(row)) != null);
+        } catch (Exception e) {
+            return pageContainsText(value) && !formValidationIsVisible();
+        }
+    }
+
+    private boolean formValidationIsVisible() {
+        return !driver.findElements(By.xpath("//*[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'is required')"
+            + " or contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'must be')]")).isEmpty();
+    }
+
     private void openFirstRowAction(String... actionTexts) {
         for (String actionText : actionTexts) {
             By rowAction = By.xpath("(//table//tbody//tr[1]//*[self::button or self::a]"
@@ -382,6 +395,30 @@ public class DashboardFlowObjects {
 
         captureFailureArtifact("charging-station-location-edit-action-not-found");
         throw new IllegalStateException("Could not find edit action for charging station location");
+    }
+
+    private void openRowActionForText(String rowText, String... actionTexts) {
+        String lowerRowText = rowText.toLowerCase();
+        for (String actionText : actionTexts) {
+            By rowAction = By.xpath("(//table//tbody//tr[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
+                + lowerRowText + "')]//*[self::button or self::a]"
+                + "[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
+                + actionText.toLowerCase() + "')])[1]");
+            if (clickIfPresent(rowAction, 2)) {
+                waitForPageToSettle();
+                return;
+            }
+        }
+
+        By iconAction = By.xpath("(//table//tbody//tr[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
+            + lowerRowText + "')]//*[self::button or self::a])[last()]");
+        if (clickIfPresent(iconAction, 2)) {
+            waitForPageToSettle();
+            return;
+        }
+
+        captureFailureArtifact("charging-station-location-edit-action-not-found");
+        throw new IllegalStateException("Could not find edit action for charging station location: " + rowText);
     }
 
     private void waitForPaymentForm() {
@@ -459,6 +496,66 @@ public class DashboardFlowObjects {
         } catch (Exception e) {
             fillIfPresent(value, label);
         }
+    }
+
+    private void fillInputInLabeledField(String value, String label) {
+        if (value == null || value.trim().isEmpty()) {
+            return;
+        }
+
+        WebElement input = findFieldInput(label);
+        if (input == null) {
+            captureFailureArtifact("charging-station-location-field-not-found-" + label.toLowerCase().replaceAll("[^a-z0-9]+", "-"));
+            throw new IllegalStateException("Could not find charging station location field: " + label);
+        }
+        fillInput(input, value);
+    }
+
+    private void selectInLabeledField(String label) {
+        WebElement select = findFieldSelect(label);
+        if (select != null) {
+            Select nativeSelect = new Select(select);
+            if (nativeSelect.getOptions().size() > 1) {
+                nativeSelect.selectByIndex(1);
+                waitForPageToSettle();
+                return;
+            }
+        }
+
+        WebElement button = findFieldSelectButton(label);
+        if (button != null && selectRadixOption(button, Duration.ofSeconds(2))) {
+            return;
+        }
+
+        captureFailureArtifact("charging-station-location-select-not-found-" + label.toLowerCase().replaceAll("[^a-z0-9]+", "-"));
+        throw new IllegalStateException("Could not select charging station location field: " + label);
+    }
+
+    private WebElement findFieldInput(String label) {
+        String lower = label.toLowerCase();
+        By locator = By.xpath(labelLocator(lower)
+            + "/ancestor::*[.//input[not(@type='hidden') and not(@disabled)] or .//textarea[not(@disabled)]][1]"
+            + "//*[self::input or self::textarea][not(@type='hidden') and not(@disabled)]");
+        return firstDisplayed(driver.findElements(locator));
+    }
+
+    private WebElement findFieldSelect(String label) {
+        String lower = label.toLowerCase();
+        By locator = By.xpath(labelLocator(lower)
+            + "/ancestor::*[.//select[not(@disabled)]][1]//select[not(@disabled)]");
+        return firstDisplayed(driver.findElements(locator));
+    }
+
+    private WebElement findFieldSelectButton(String label) {
+        String lower = label.toLowerCase();
+        By locator = By.xpath(labelLocator(lower)
+            + "/ancestor::*[.//button[not(@disabled)]][1]//button[not(@disabled)]");
+        return firstDisplayed(driver.findElements(locator));
+    }
+
+    private String labelLocator(String lowerLabel) {
+        return "//*[self::label or self::span or self::p]"
+            + "[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '" + lowerLabel + "')]";
     }
 
     private String getFlowBikeId() {
