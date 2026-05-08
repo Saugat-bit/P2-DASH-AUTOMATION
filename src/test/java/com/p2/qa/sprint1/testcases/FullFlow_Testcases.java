@@ -1,6 +1,7 @@
 package com.p2.qa.sprint1.testcases;
 
 import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebDriverException;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -66,6 +67,7 @@ public class FullFlow_Testcases extends Base {
 
     @Test(priority = 2, dependsOnMethods = {"testCreateVendor"})
     public void testCreateAllParts() {
+        ensureBrowserSession();
         bikePartsPage.navigateToBikeParts();
         
         // Use generic vendor index 1 for simplicity since table sorts it to top usually, or custom generic flow
@@ -123,6 +125,7 @@ public class FullFlow_Testcases extends Base {
 
     @Test(priority = 3, dependsOnMethods = {"testCreateAllParts"})
     public void testCreateBike() {
+        ensureBrowserSession();
         bikePage.navigateToBikes();
         
         String uniqueBikeName = TestDataGenerator.getRandomName();
@@ -139,6 +142,7 @@ public class FullFlow_Testcases extends Base {
 
     @Test(priority = 4, dependsOnMethods = {"testCreateBike"})
     public void testCreateCustomer() {
+        ensureBrowserSession();
         customerPage.navigateToCustomers();
         customerPage.clickRegisterCustomer();
         
@@ -165,6 +169,28 @@ public class FullFlow_Testcases extends Base {
             bikePartsPage.isPartVisible(identifier),
             "Created " + partType + " part should be visible with identifier: " + identifier
         );
+    }
+
+    private void ensureBrowserSession() {
+        try {
+            if (driver != null) {
+                driver.getTitle();
+                return;
+            }
+        } catch (WebDriverException e) {
+            System.out.println("Browser session was not available, starting a new session: " + e.getMessage());
+        }
+
+        driver = initializeBrowserAndOpenApplication();
+        driver.manage().deleteAllCookies();
+
+        Login login = new Login();
+        driver = login.loginAs(driver, "admin");
+
+        vendorPage = new VendorPageObject(driver);
+        bikePartsPage = new BikePartsObjects(driver);
+        bikePage = new BikeObjects(driver);
+        customerPage = new CustomerObjects(driver);
     }
 
     @AfterClass
