@@ -26,6 +26,9 @@ public class DashboardFlowObjects {
     private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
     private static final long OPTIONAL_WAIT_MS = Long.getLong("ui.flow.optional.wait.ms", 250L);
     private static final long SETTLE_PAUSE_MS = Long.getLong("ui.flow.settle.pause.ms", 250L);
+    private static final long ACTION_WAIT_MS = Long.getLong("ui.flow.action.wait.ms", 700L);
+    private static final long NAVIGATION_WAIT_MS = Long.getLong("ui.flow.navigation.wait.ms", 1000L);
+    private static final long VERIFY_WAIT_MS = Long.getLong("ui.flow.verify.wait.ms", 3000L);
     private static final boolean REVIEW_SCREENSHOTS_ENABLED = Boolean.parseBoolean(
         System.getProperty("ui.flow.review.screenshots", "false")
     );
@@ -239,12 +242,12 @@ public class DashboardFlowObjects {
             }
         }
 
-        clickIfPresent(By.xpath("//*[self::span or self::div][normalize-space()='" + menuText + "']"), 3);
+        clickIfPresent(By.xpath("//*[self::span or self::div][normalize-space()='" + menuText + "']"), Duration.ofMillis(NAVIGATION_WAIT_MS));
 
         for (String hint : hrefOrTextHints) {
             if (clickIfPresent(By.xpath("//a[contains(translate(@href,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
                 + hint.toLowerCase() + "') or contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
-                + hint.toLowerCase() + "')]"), 5)) {
+                + hint.toLowerCase() + "')]"), Duration.ofMillis(NAVIGATION_WAIT_MS))) {
                 waitForPageToSettle();
                 return;
             }
@@ -325,7 +328,7 @@ public class DashboardFlowObjects {
         for (String text : texts) {
             By button = By.xpath("//button[contains(normalize-space(.), '" + text + "')]"
                 + " | //a[contains(normalize-space(.), '" + text + "')]");
-            if (clickIfPresent(button, 3)) {
+            if (clickIfPresent(button, Duration.ofMillis(ACTION_WAIT_MS))) {
                 return true;
             }
         }
@@ -365,7 +368,7 @@ public class DashboardFlowObjects {
             String lower = value.toLowerCase();
             By row = By.xpath("//table//tbody//tr[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
                 + lower + "')]");
-            return new WebDriverWait(driver, Duration.ofSeconds(5))
+            return new WebDriverWait(driver, Duration.ofMillis(VERIFY_WAIT_MS))
                 .until(driver -> firstDisplayed(driver.findElements(row)) != null);
         } catch (Exception e) {
             return pageContainsText(value) && !formValidationIsVisible();
@@ -382,14 +385,14 @@ public class DashboardFlowObjects {
             By rowAction = By.xpath("(//table//tbody//tr[1]//*[self::button or self::a]"
                 + "[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
                 + actionText.toLowerCase() + "')])[1]");
-            if (clickIfPresent(rowAction, 2)) {
+            if (clickIfPresent(rowAction, Duration.ofMillis(ACTION_WAIT_MS))) {
                 waitForPageToSettle();
                 return;
             }
         }
 
         By iconAction = By.xpath("(//table//tbody//tr[1]//*[self::button or self::a])[last()]");
-        if (clickIfPresent(iconAction, 2)) {
+        if (clickIfPresent(iconAction, Duration.ofMillis(ACTION_WAIT_MS))) {
             waitForPageToSettle();
             return;
         }
@@ -405,7 +408,7 @@ public class DashboardFlowObjects {
                 + lowerRowText + "')]//*[self::button or self::a]"
                 + "[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
                 + actionText.toLowerCase() + "')])[1]");
-            if (clickIfPresent(rowAction, 2)) {
+            if (clickIfPresent(rowAction, Duration.ofMillis(ACTION_WAIT_MS))) {
                 waitForPageToSettle();
                 return;
             }
@@ -413,7 +416,7 @@ public class DashboardFlowObjects {
 
         By iconAction = By.xpath("(//table//tbody//tr[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
             + lowerRowText + "')]//*[self::button or self::a])[last()]");
-        if (clickIfPresent(iconAction, 2)) {
+        if (clickIfPresent(iconAction, Duration.ofMillis(ACTION_WAIT_MS))) {
             waitForPageToSettle();
             return;
         }
@@ -451,7 +454,7 @@ public class DashboardFlowObjects {
     private void confirmIfPresent(String... words) {
         for (String word : words) {
             By button = By.xpath("//button[contains(normalize-space(.), '" + word + "')]");
-            if (clickIfPresent(button, 2)) {
+            if (clickIfPresent(button, Duration.ofMillis(ACTION_WAIT_MS))) {
                 waitForPageToSettle();
                 return;
             }

@@ -28,6 +28,7 @@ public class StaffmoduleObjects {
     private WebDriverWait wait;
     private static String password = ConfigReader.get("strongpassword");
     private static final long REVIEW_PAUSE_MS = Long.getLong("ui.flow.review.pause.ms", 300L);
+    private static final long SETTLE_PAUSE_MS = Long.getLong("ui.flow.settle.pause.ms", 250L);
     private static final boolean REVIEW_SCREENSHOTS_ENABLED = Boolean.parseBoolean(
         System.getProperty("ui.flow.review.screenshots", "false")
     );
@@ -144,7 +145,7 @@ public class StaffmoduleObjects {
             
             if (!isVisible) {
                 wait.until(ExpectedConditions.elementToBeClickable(administrationLink)).click();
-                Thread.sleep(1000); // Wait for dropdown to expand
+                waitForMenuToSettle();
             }
         } catch (Exception e) {
             System.out.println("Could not click Administration menu: " + e.getMessage());
@@ -193,6 +194,16 @@ public class StaffmoduleObjects {
         } catch (Exception ignored) {
         }
         return true;
+    }
+
+    private void waitForMenuToSettle() {
+        try {
+            if (SETTLE_PAUSE_MS > 0) {
+                Thread.sleep(SETTLE_PAUSE_MS);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
     
     public void clickAddStaffButton() {
