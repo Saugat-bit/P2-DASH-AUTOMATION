@@ -11,6 +11,7 @@ public class TestDataGenerator {
         (int) ((System.currentTimeMillis() / 1000) % 900000)
     );
     private static int phoneCounter = Math.max(1, runSeed % 1000000);
+    private static int identifierCounter = runSeed;
 
     public static String getRandomEmail() {
         return getSimpleYopmailEmail("staff");
@@ -39,8 +40,8 @@ public class TestDataGenerator {
     public static String getRandomAlphanumeric(int length) {
         return RandomStringUtils.randomAlphanumeric(length);
     }
-    public static String getRandomIdentifier() {
-        return "BAT_" + System.currentTimeMillis();
+    public static synchronized String getRandomIdentifier() {
+        return String.format("%08X", identifierCounter++);
     }
 
     public static String getRandomDayBefore(int referenceDay) {

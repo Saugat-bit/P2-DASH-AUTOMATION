@@ -35,7 +35,7 @@ public class DashboardEndToEndFlow_Testcases extends Base {
         staffPage = new StaffmoduleObjects(driver);
     }
 
-    @Test(description = "UI flow: create customers, assign bike, payment, transfer ownership, create staff")
+    @Test(description = "UI flow: create customers, assign bike, payment, transfer ownership, charge station location, create staff")
     public void createCustomerBikePaymentOwnershipStaffFlow() {
         CustomerData firstCustomer = flow.createCustomer("customer");
         Assert.assertTrue(firstCustomer.email.endsWith("@yopmail.com"), "Customer email must use yopmail.com");
@@ -46,6 +46,7 @@ public class DashboardEndToEndFlow_Testcases extends Base {
         flow.assignFirstAvailableBikeToCustomer(firstCustomer);
         flow.makePaymentForCustomer(firstCustomer);
         flow.transferOwnership(firstCustomer, transferCustomer);
+        flow.createAndUpdateChargingStationLocation();
 
         StaffData staff = staffPage.addStaffWithAdminRole();
         Assert.assertTrue(staff.getEmail().endsWith("@yopmail.com"), "Staff email must use yopmail.com");
