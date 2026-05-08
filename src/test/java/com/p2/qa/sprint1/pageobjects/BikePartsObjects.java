@@ -212,6 +212,7 @@ public class BikePartsObjects {
         try { Thread.sleep(500); } catch(Exception e){}
         ((org.openqa.selenium.JavascriptExecutor)driver).executeScript("arguments[0].click();", saveBtn);
         confirmAddIfPresent();
+        waitForPartListToLoad();
     }
 
     public void createBatteryPart(String identifier, int vendorIndex) {
@@ -230,8 +231,7 @@ public class BikePartsObjects {
         fillInputByName("max_charging_current", "20");
         fillInputByName("max_discharging_current", "100");
 
-        ((JavascriptExecutor) driver).executeScript("arguments[0].click();", saveBtn);
-        confirmAddIfPresent();
+        saveCurrentPart();
         try { Thread.sleep(1000); } catch(Exception e) {}
     }
 
@@ -435,9 +435,13 @@ public class BikePartsObjects {
     }
     
     public void createKeyFob(String identifier, int vendorIndex, String bleName) {
+        fillCommonPartFields(identifier, vendorIndex);
+        fillInputByName("ble_name", bleName);
+        saveCurrentPart();
+    }
+
+    public void createCommboard(String identifier, int vendorIndex) {
         createBasicPart(identifier, vendorIndex);
-        bleNameField.sendKeys(bleName);
-        saveBtn.click();
     }
     
     public void createDisplay(String identifier, int vendorIndex, String mcuVersion, String armVersion, String fexVersion) {
@@ -473,13 +477,29 @@ public class BikePartsObjects {
         searchField.clear();
         searchField.sendKeys(identifier);
     }
+
+    public boolean isPartVisible(String identifier) {
+        searchPart(identifier);
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(10))
+                .until(ExpectedConditions.textToBePresentInElementLocated(
+                    By.xpath("//table/tbody/tr[1]"),
+                    identifier
+                ));
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
     
     public String getFirstPartId() {
         return firstPartId.getText();
     }
     
     public String getFirstPartIdentifier() {
-        return firstPartIdentifier.getText();
+        return new WebDriverWait(driver, Duration.ofSeconds(10))
+            .until(ExpectedConditions.visibilityOf(firstPartIdentifier))
+            .getText();
     }
     public String getFirstpartvendorid() {
     	System.out.println("part is cerated using "+firstPartvendorId.getText()+"vendor id");

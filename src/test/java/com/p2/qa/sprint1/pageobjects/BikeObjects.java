@@ -248,6 +248,7 @@ public class BikeObjects extends Base {
     public void clickSubmit() {
         wait.until(ExpectedConditions.elementToBeClickable(submitBtn)).click();
         confirmAddBikeIfPresent();
+        waitForBikeSubmitToSettle();
     }
 
     private void selectManufacturedDate() {
@@ -324,6 +325,28 @@ public class BikeObjects extends Base {
             return message.getText();
         } catch (Exception e) {
             return "";
+        }
+    }
+
+    public boolean isBikeCreationSuccessful(String vin) {
+        try {
+            return new WebDriverWait(driver, Duration.ofSeconds(15)).until(driver -> {
+                String feedback = "";
+                for (WebElement message : driver.findElements(toastOrAlert)) {
+                    feedback = feedback + " " + message.getText().toLowerCase();
+                }
+                if (feedback.contains("error") || feedback.contains("failed")) {
+                    return false;
+                }
+
+                String pageText = driver.findElement(By.tagName("body")).getText();
+                return pageText.contains(vin)
+                    || feedback.contains("success")
+                    || feedback.contains("created")
+                    || feedback.contains("added");
+            });
+        } catch (Exception e) {
+            return false;
         }
     }
 }

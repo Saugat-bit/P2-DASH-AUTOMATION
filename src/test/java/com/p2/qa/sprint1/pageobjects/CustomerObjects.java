@@ -4,6 +4,7 @@ import org.openqa.selenium.By;
 import org.openqa.selenium.Keys;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
+import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.interactions.Actions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
@@ -32,6 +33,7 @@ public class CustomerObjects extends Base {
     By lastNameInput = By.xpath("//input[@name='lastName' or contains(@placeholder, 'Last')]");
     By phoneInput = By.xpath("//input[@name='phone' or contains(@placeholder, 'Phone')]");
     By submitBtn = By.xpath("//button[contains(., 'Submit') or contains(., 'Register') or contains(., 'Create')]");
+    By toastOrAlert = By.xpath("//*[contains(@class, 'toast') or contains(@class, 'alert') or contains(@class, 'error')]");
 
     public CustomerObjects(WebDriver driver) {
         this.driver = driver;
@@ -69,9 +71,7 @@ public class CustomerObjects extends Base {
         wait.until(ExpectedConditions.elementToBeClickable(continueBtn)).click();
     }
     
-    public void fillDetailsStep(String firstName, String lastName, String phone) throws InterruptedException {
-        // Wait for next step to load
-        Thread.sleep(2000);
+    public void fillDetailsStep(String firstName, String lastName, String phone) {
         try {
             wait.until(ExpectedConditions.visibilityOfElementLocated(firstNameInput)).sendKeys(firstName);
             driver.findElement(lastNameInput).sendKeys(lastName);
@@ -84,8 +84,43 @@ public class CustomerObjects extends Base {
     public void clickSubmit() {
         try {
             wait.until(ExpectedConditions.elementToBeClickable(submitBtn)).click();
+            confirmIfPresent();
         } catch (Exception e) {
             System.out.println("Submit button not clicked, maybe not present.");
+        }
+    }
+
+    private void confirmIfPresent() {
+        try {
+            WebElement confirm = new WebDriverWait(driver, Duration.ofSeconds(5))
+                .until(ExpectedConditions.elementToBeClickable(
+                    By.xpath("//button[contains(., 'Yes') or contains(., 'Register') or contains(., 'Create') or contains(., 'Save')]")
+                ));
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", confirm);
+        } catch (Exception ignore) {
+        }
+    }
+
+    public boolean isCustomerCreationSuccessful(String email) {
+        try {
+            return new WebDriverWait(driver, Duration.ofSeconds(15)).until(driver -> {
+                String pageText = driver.findElement(By.tagName("body")).getText();
+                String feedback = "";
+                for (WebElement message : driver.findElements(toastOrAlert)) {
+                    feedback = feedback + " " + message.getText().toLowerCase();
+                }
+
+                if (feedback.contains("error") || feedback.contains("failed")) {
+                    return false;
+                }
+
+                return pageText.contains(email)
+                    || feedback.contains("success")
+                    || feedback.contains("created")
+                    || feedback.contains("registered");
+            });
+        } catch (Exception e) {
+            return false;
         }
     }
 }
