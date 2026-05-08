@@ -223,6 +223,7 @@ public class DashboardFlowObjects {
         fillInputInLabeledField(TestDataGenerator.getValidNepaliPhoneNumber(), "Phone Number");
         selectInLabeledField("Host Business Type");
         fillInputInLabeledField("Lazimpat, Kathmandu", "Address");
+        fillInputInLabeledField("Automated charging station location flow", "Description");
     }
 
     public void navigateTo(String menuText, String... hrefOrTextHints) {
