@@ -155,6 +155,80 @@ public class DashboardFlowObjects {
         waitForPageToSettle();
     }
 
+    public void createAndUpdateChargingStationLocation() {
+        String locationName = "FlowChargeLocation" + TestDataGenerator.getRandomAlphanumeric(6);
+        String updatedLocationName = locationName + "Updated";
+
+        openChargingStationLocation();
+        clickFirstButton(
+            "Add Charging Station Location",
+            "Add Charging Station Locale",
+            "Add Charge Station Locale",
+            "Add New Location",
+            "Add Location",
+            "Create Location",
+            "Add"
+        );
+        waitForPageToSettle();
+        fillChargingStationLocationForm(locationName);
+        reviewBeforeAction("charging-station-location-before-create");
+        clickFirstButton("Submit", "Create", "Save", "Add");
+        reviewBeforeAction("charging-station-location-confirm-create");
+        confirmIfPresent("Yes", "Create", "Add", "Save");
+        waitForPageToSettle();
+
+        openChargingStationLocation();
+        if (!pageContainsText(locationName)) {
+            searchIfPresent(locationName);
+        }
+        if (!pageContainsText(locationName)) {
+            captureFailureArtifact("charging-station-location-create-not-visible");
+            throw new IllegalStateException("Charging station location was not visible after create: " + locationName);
+        }
+
+        openFirstRowAction("Edit", "Update");
+        fillChargingStationLocationForm(updatedLocationName);
+        reviewBeforeAction("charging-station-location-before-update");
+        clickFirstButton("Submit", "Update", "Save");
+        reviewBeforeAction("charging-station-location-confirm-update");
+        confirmIfPresent("Yes", "Update", "Save");
+        waitForPageToSettle();
+
+        openChargingStationLocation();
+        if (!pageContainsText(updatedLocationName)) {
+            searchIfPresent(updatedLocationName);
+        }
+        if (!pageContainsText(updatedLocationName)) {
+            captureFailureArtifact("charging-station-location-update-not-visible");
+            throw new IllegalStateException("Charging station location was not visible after update: " + updatedLocationName);
+        }
+    }
+
+    private void openChargingStationLocation() {
+        navigateTo(
+            "Charge station locale",
+            "charge station locale",
+            "charging station location",
+            "charging station locale",
+            "charge-station-locale",
+            "charging-station-location",
+            "charge-station-location",
+            "locale"
+        );
+    }
+
+    private void fillChargingStationLocationForm(String locationName) {
+        fillIfPresentFast(locationName, "name", "location_name", "station_location", "Location Name", "Name");
+        fillIfPresentFast("Kathmandu", "city", "City");
+        fillIfPresentFast("Bagmati", "state", "province", "State", "Province");
+        fillIfPresentFast("Nepal", "country", "Country");
+        fillIfPresentFast("Lazimpat, Kathmandu", "address", "Address", "Location");
+        fillIfPresentFast("27.7172", "latitude", "lat", "Latitude");
+        fillIfPresentFast("85.3240", "longitude", "lng", "long", "Longitude");
+        fillIfPresentFast("Automated charging station location flow", "remarks", "description", "Remarks", "Description");
+        selectFirstOptionForLabelsFast("Charging Station", "Station", "Locale", "Status");
+    }
+
     public void navigateTo(String menuText, String... hrefOrTextHints) {
         if (DIRECT_NAVIGATION && navigateDirectly(menuText, hrefOrTextHints)) {
             return;
@@ -229,6 +303,9 @@ public class DashboardFlowObjects {
 
     private String directRouteFor(String menuText, String... hrefOrTextHints) {
         String combined = (menuText + " " + String.join(" ", hrefOrTextHints)).toLowerCase();
+        if (combined.contains("charge station locale") || combined.contains("charging station location")) {
+            return "/charge-station-locale";
+        }
         if (combined.contains("ownership")) {
             return "/ownership";
         }
@@ -267,6 +344,44 @@ public class DashboardFlowObjects {
             }
         }
         return false;
+    }
+
+    private void searchIfPresent(String value) {
+        WebElement search = findInput("Search", Duration.ofMillis(OPTIONAL_WAIT_MS));
+        if (search != null) {
+            fillInput(search, value);
+            search.sendKeys(Keys.ENTER);
+            waitForPageToSettle();
+        }
+    }
+
+    private boolean pageContainsText(String value) {
+        try {
+            return driver.findElement(By.tagName("body")).getText().contains(value);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void openFirstRowAction(String... actionTexts) {
+        for (String actionText : actionTexts) {
+            By rowAction = By.xpath("(//table//tbody//tr[1]//*[self::button or self::a]"
+                + "[contains(translate(normalize-space(.),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '"
+                + actionText.toLowerCase() + "')])[1]");
+            if (clickIfPresent(rowAction, 2)) {
+                waitForPageToSettle();
+                return;
+            }
+        }
+
+        By iconAction = By.xpath("(//table//tbody//tr[1]//*[self::button or self::a])[last()]");
+        if (clickIfPresent(iconAction, 2)) {
+            waitForPageToSettle();
+            return;
+        }
+
+        captureFailureArtifact("charging-station-location-edit-action-not-found");
+        throw new IllegalStateException("Could not find edit action for charging station location");
     }
 
     private void waitForPaymentForm() {
